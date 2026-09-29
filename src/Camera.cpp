@@ -1,0 +1,159 @@
+#include "Camera.h"
+#include <algorithm>
+#include <cmath>
+
+Camera::Camera(glm::vec3 startPos)
+    : mode(CAMERA_OVERVIEW),
+      position(startPos),
+      front(glm::vec3(0.0f, -0.3f, -1.0f)),
+      worldUp(glm::vec3(0.0f, 1.0f, 0.0f)),
+      yaw(-90.0f),
+      pitch(-15.0f),
+      movementSpeed(15.0f),
+      turnSpeed(65.0f),
+      fov(45.0f) {
+    updateCameraVectors();
+}
+
+glm::mat4 Camera::getViewMatrix() const {
+    return glm::lookAt(position, position + front, up);
+}
+
+glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {
+    return glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 1000.0f);
+}
+
+void Camera::setMode(CameraMode newMode) {
+    mode = newMode;
+    if (mode == CAMERA_OVERVIEW) {
+        position = glm::vec3(0.0f, 18.0f, 42.0f);
+        yaw = -90.0f;
+        pitch = -18.0f;
+        updateCameraVectors();
+    } else if (mode == CAMERA_FREE_FLY) {
+        // Retain current position, keep vectors active
+        updateCameraVectors();
+    }
+}
+
+void Camera::update(float deltaTime, const glm::vec3& balloonPos) {
+    (void)deltaTime; // Suppress unused warning
+
+    switch (mode) {
+        case CAMERA_OVERVIEW: {
+            position = glm::vec3(0.0f, 18.0f, 42.0f);
+            glm::vec3 target = balloonPos + glm::vec3(0.0f, 2.0f, 0.0f);
+            front = glm::normalize(target - position);
+            right = glm::normalize(glm::cross(front, worldUp));
+            up = glm::normalize(glm::cross(right, front));
+            break;
+        }
+        case CAMERA_FOLLOW: {
+            // Positioned behind and slightly above the balloon
+            glm::vec3 offset(0.0f, 5.0f, 22.0f);
+            position = balloonPos + offset;
+            glm::vec3 lookTarget = balloonPos + glm::vec3(0.0f, 2.5f, 0.0f);
+            front = glm::normalize(lookTarget - position);
+            right = glm::normalize(glm::cross(front, worldUp));
+            up = glm::normalize(glm::cross(right, front));
+            break;
+        }
+        case CAMERA_BASKET_POV: {
+            // Positioned directly inside the basket looking forward across the horizon
+            position = balloonPos + glm::vec3(0.0f, -2.2f, 0.0f);
+            front = glm::vec3(0.0f, 0.05f, -1.0f);
+            right = glm::normalize(glm::cross(front, worldUp));
+            up = glm::normalize(glm::cross(right, front));
+            break;
+        }
+        case CAMERA_FREE_FLY: {
+            // Driven purely by user keyboard / mouse input
+            updateCameraVectors();
+            break;
+        }
+    }
+}
+
+void Camera::processKeyboard(CameraMovement direction, float deltaTime) {
+    if (mode != CAMERA_FREE_FLY) return;
+
+    float velocity = movementSpeed * deltaTime;
+    float rotDelta = turnSpeed * deltaTime;
+
+    if (direction == CAM_FORWARD)
+        position += front * velocity;
+    if (direction == CAM_BACKWARD)
+        position -= front * velocity;
+    if (direction == CAM_LEFT)
+        position -= right * velocity;
+    if (direction == CAM_RIGHT)
+        position += right * velocity;
+    if (direction == CAM_UP)
+        position += worldUp * velocity;
+    if (direction == CAM_DOWN)
+        position -= worldUp * velocity;
+
+    // Arrow keys rotate view in Free-fly mode
+    if (direction == CAM_YAW_LEFT) {
+        yaw -= rotDelta;
+        updateCameraVectors();
+    }
+    if (direction == CAM_YAW_RIGHT) {
+        yaw += rotDelta;
+        updateCameraVectors();
+    }
+    if (direction == CAM_PITCH_UP) {
+        pitch += rotDelta;
+        if (pitch > 89.0f) pitch = 89.0f;
+        updateCameraVectors();
+    }
+    if (direction == CAM_PITCH_DOWN) {
+        pitch -= rotDelta;
+        if (pitch < -89.0f) pitch = -89.0f;
+        updateCameraVectors();
+    }
+}
+
+void Camera::processMouseMovement(float xoffset, float yoffset, bool constrainPitch) {
+    if (mode != CAMERA_FREE_FLY) return;
+
+    float sensitivity = 0.1f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    if (constrainPitch) {
+        if (pitch > 89.0f) pitch = 89.0f;
+        if (pitch < -89.0f) pitch = -89.0f;
+    }
+
+    updateCameraVectors();
+}
+
+void Camera::processMouseScroll(float yoffset) {
+    fov -= yoffset;
+    if (fov < 15.0f) fov = 15.0f;
+    if (fov > 75.0f) fov = 75.0f;
+}
+
+const char* Camera::getModeName() const {
+    switch (mode) {
+        case CAMERA_OVERVIEW: return "1: OVERVIEW (Cinematic Scenic)";
+        case CAMERA_FOLLOW: return "2: FOLLOW (Tracking Balloon)";
+        case CAMERA_FREE_FLY: return "3: FREE-FLY (WASD / Arrows)";
+        case CAMERA_BASKET_POV: return "4: BASKET POV (Passenger View)";
+        default: return "UNKNOWN";
+    }
+}
+
+void Camera::updateCameraVectors() {
+    glm::vec3 newFront;
+    newFront.x = std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    newFront.y = std::sin(glm::radians(pitch));
+    newFront.z = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    front = glm::normalize(newFront);
+    right = glm::normalize(glm::cross(front, worldUp));
+    up = glm::normalize(glm::cross(right, front));
+}
