@@ -557,52 +557,60 @@ Mesh ModelGenerator::createRainbowBalloonEnvelope(float radius, float height, in
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    // 7-color Rainbow spectrum (matching user's reference image)
-    const glm::vec3 rainbowColors[7] = {
-        glm::vec3(0.94f, 0.20f, 0.18f), // 1. Crimson Red
-        glm::vec3(0.98f, 0.52f, 0.12f), // 2. Vivid Orange
-        glm::vec3(0.98f, 0.86f, 0.08f), // 3. Sunny Yellow
-        glm::vec3(0.16f, 0.78f, 0.32f), // 4. Fresh Green
-        glm::vec3(0.12f, 0.66f, 0.94f), // 5. Sky Cyan
-        glm::vec3(0.14f, 0.36f, 0.88f), // 6. Royal Blue
-        glm::vec3(0.52f, 0.18f, 0.70f)  // 7. Violet Purple
-    };
-
-    // Sunset Fire (Background Balloon 1)
-    const glm::vec3 sunsetColors[3] = {
-        glm::vec3(0.95f, 0.28f, 0.22f), // Coral Red
-        glm::vec3(0.98f, 0.78f, 0.15f), // Goldenrod
-        glm::vec3(0.96f, 0.96f, 0.96f)  // Pure White
-    };
-
-    // Ocean Teal (Background Balloon 2)
-    const glm::vec3 oceanColors[3] = {
-        glm::vec3(0.12f, 0.65f, 0.72f), // Teal Cyan
-        glm::vec3(0.10f, 0.25f, 0.68f), // Deep Navy
-        glm::vec3(0.96f, 0.96f, 0.96f)  // Clean White
-    };
-
     const int sectorsPerGore = 4;
     const int totalSectors = numGores * sectorsPerGore;
 
+    // Geometric Envelope Proportions:
+    // Classic aerodynamic bulbous teardrop hot air balloon profile
+    // The upper dome is an ellipse closing at the top apex (r = 0, dy/dr = 0)
+    // The lower cone tapers smoothly into the throat collar (r = throatRadius)
+    const float splitV = 0.36f;        // Equator location: 36% down from apex
+    const float hTop = height * 0.38f; // Height of upper ellipsoidal dome (3.65m)
+    const float hBot = height * 0.62f; // Height of lower tapering body (5.95m)
+    const float yEq = height * 0.12f;  // Equator Y level relative to balloon origin (+1.15m)
+    const float throatRadius = 1.40f;  // Fits into the throat skirt collar (1.55m top radius)
+
     for (int r = 0; r < rings; ++r) {
-        float v = (float)r / (float)(rings - 1); // 0 (top pole) to 1 (bottom throat)
+        float v = (float)r / (float)(rings - 1); // 0 (top apex) to 1 (bottom throat)
 
         float rBase;
         float y;
+        float nr, ny; // Outward radial and vertical normal components
 
-        if (v < 0.46f) {
-            // Upper bulbous dome
-            float localV = v / 0.46f;
-            float phi = localV * 0.5f * (float)M_PI;
-            y = (1.0f - std::sin(phi)) * (height * 0.46f);
-            rBase = std::cos(phi) * radius;
+        if (v <= splitV) {
+            // ==========================================
+            // Upper Bulbous Ellipsoidal Dome (v in [0, splitV])
+            // ==========================================
+            float u = v / splitV; // 0 (apex) to 1 (equator)
+            float phi = u * 0.5f * (float)M_PI; // 0 to PI/2
+
+            // Smooth ellipse:
+            // At phi = 0: r = 0, y = yEq + hTop, dy/dr = 0 (horizontal dome apex)
+            // At phi = PI/2: r = radius, y = yEq, dr/dy = 0 (vertical side profile)
+            rBase = radius * std::sin(phi);
+            y = yEq + hTop * std::cos(phi);
+
+            nr = hTop * std::sin(phi);
+            ny = radius * std::cos(phi);
         } else {
-            // Lower tapering cone towards the throat
-            float localV = (v - 0.46f) / 0.54f;
-            y = -localV * (height * 0.54f);
-            rBase = radius * (1.0f - 0.70f * std::sqrt(localV));
+            // ==========================================
+            // Lower Aerodynamic Tapering Body (v in (splitV, 1.0])
+            // ==========================================
+            float u = (v - splitV) / (1.0f - splitV); // 0 (equator) to 1 (throat)
+            float psi = u * 0.5f * (float)M_PI; // 0 to PI/2
+
+            // Smooth cosine transition:
+            // At psi = 0: r = radius, dr/du = 0 (matches vertical tangent of upper dome!)
+            // At psi = PI/2: r = throatRadius
+            rBase = throatRadius + (radius - throatRadius) * std::cos(psi);
+            y = yEq - u * hBot;
+
+            nr = hBot;
+            ny = -(radius - throatRadius) * 0.5f * (float)M_PI * std::sin(psi);
         }
+
+        // Puffy gore bulge envelope (smoothly fades to 0 at apex and throat)
+        float gorePuffEnvelope = std::sin(v * (float)M_PI);
 
         for (int s = 0; s < totalSectors; ++s) {
             int goreIndex = s / sectorsPerGore;
@@ -610,38 +618,81 @@ Mesh ModelGenerator::createRainbowBalloonEnvelope(float radius, float height, in
             float goreFrac = (float)goreSector / (float)sectorsPerGore;
 
             // 3D Puffy gore bulge between vertical load tapes
-            float bulge = 1.0f + 0.042f * std::sin(goreFrac * (float)M_PI);
+            float bulge = 1.0f + 0.046f * gorePuffEnvelope * std::sin(goreFrac * (float)M_PI);
             float currentRadius = rBase * bulge;
 
-            float u = (float)s / (float)totalSectors;
-            float theta = u * 2.0f * (float)M_PI;
+            float uHoriz = (float)s / (float)totalSectors;
+            float theta = uHoriz * 2.0f * (float)M_PI;
+            float cosT = std::cos(theta);
+            float sinT = std::sin(theta);
 
-            float x = std::cos(theta) * currentRadius;
-            float z = std::sin(theta) * currentRadius;
+            float x = cosT * currentRadius;
+            float z = sinT * currentRadius;
 
             glm::vec3 pos(x, y, z);
-            glm::vec3 norm = glm::normalize(glm::vec3(x, y * 0.45f, z));
+            glm::vec3 norm = glm::normalize(glm::vec3(nr * cosT, ny, nr * sinT));
+            if (v == 0.0f) norm = glm::vec3(0.0f, 1.0f, 0.0f);
 
             glm::vec3 vertColor;
             if (colorScheme == 0) {
-                vertColor = rainbowColors[goreIndex % 7];
+                // Staggered horizontal rainbow bands matching the user's reference photograph
+                float staggeredV = v + (float)(goreIndex % 2) * 0.045f;
+                if (staggeredV < 0.16f) {
+                    // 1. Royal Sky Blue (Crown & upper dome)
+                    vertColor = glm::vec3(0.12f, 0.44f, 0.88f);
+                } else if (staggeredV < 0.28f) {
+                    // 2. Magenta / Violet Purple
+                    vertColor = glm::vec3(0.56f, 0.16f, 0.72f);
+                } else if (staggeredV < 0.44f) {
+                    // 3. Crimson Red
+                    vertColor = glm::vec3(0.92f, 0.18f, 0.20f);
+                } else if (staggeredV < 0.62f) {
+                    // 4. Vivid Sunset Orange
+                    vertColor = glm::vec3(0.98f, 0.52f, 0.10f);
+                } else if (staggeredV < 0.82f) {
+                    // 5. Sunny Yellow
+                    vertColor = glm::vec3(0.98f, 0.86f, 0.08f);
+                } else {
+                    // 6. Bright Golden Lime Yellow (Throat)
+                    vertColor = glm::vec3(0.96f, 0.90f, 0.22f);
+                }
+
+                // Top crown cap (deep navy apex valve cap)
+                if (v < 0.028f) {
+                    vertColor = glm::vec3(0.08f, 0.24f, 0.52f);
+                }
             } else if (colorScheme == 1) {
-                vertColor = sunsetColors[goreIndex % 3];
+                // Sunset Fire (Background Balloon 1)
+                const glm::vec3 sunsetColors[5] = {
+                    glm::vec3(0.94f, 0.22f, 0.18f), // Coral Red
+                    glm::vec3(0.98f, 0.55f, 0.12f), // Orange
+                    glm::vec3(0.98f, 0.84f, 0.15f), // Gold
+                    glm::vec3(0.96f, 0.96f, 0.96f), // White
+                    glm::vec3(0.92f, 0.28f, 0.24f)  // Crimson
+                };
+                int cIdx = (int)((v * 5.0f) + (goreIndex % 2) * 0.5f) % 5;
+                vertColor = sunsetColors[cIdx];
+                if (v < 0.028f) vertColor = glm::vec3(0.35f, 0.12f, 0.10f);
             } else {
-                vertColor = oceanColors[goreIndex % 3];
+                // Ocean Teal (Background Balloon 2)
+                const glm::vec3 oceanColors[5] = {
+                    glm::vec3(0.08f, 0.32f, 0.72f), // Royal Blue
+                    glm::vec3(0.12f, 0.64f, 0.82f), // Cyan
+                    glm::vec3(0.20f, 0.80f, 0.72f), // Teal Mint
+                    glm::vec3(0.96f, 0.96f, 0.96f), // White
+                    glm::vec3(0.10f, 0.40f, 0.78f)  // Navy
+                };
+                int cIdx = (int)((v * 5.0f) + (goreIndex % 2) * 0.5f) % 5;
+                vertColor = oceanColors[cIdx];
+                if (v < 0.028f) vertColor = glm::vec3(0.06f, 0.18f, 0.35f);
             }
 
-            // Subtle dark groove between gores for realistic load-tape seam lines
+            // Realistic vertical load tape seam groove between gores
             if (goreFrac < 0.08f || goreFrac > 0.92f) {
-                vertColor *= 0.82f;
+                vertColor *= 0.80f;
             }
 
-            // Top crown cap
-            if (v < 0.035f) {
-                vertColor = glm::vec3(0.24f, 0.24f, 0.26f);
-            }
-
-            vertices.push_back({pos, norm, vertColor, {u, v}});
+            vertices.push_back({pos, norm, vertColor, {uHoriz, v}});
         }
     }
 
@@ -653,13 +704,20 @@ Mesh ModelGenerator::createRainbowBalloonEnvelope(float radius, float height, in
             unsigned int next = (r + 1) * totalSectors + s;
             unsigned int nextRight = (r + 1) * totalSectors + nextS;
 
-            indices.push_back(cur);
-            indices.push_back(next);
-            indices.push_back(nextRight);
+            if (r == 0) {
+                // Apex cap: clean triangle fan from top pole
+                indices.push_back(cur);
+                indices.push_back(next);
+                indices.push_back(nextRight);
+            } else {
+                indices.push_back(cur);
+                indices.push_back(next);
+                indices.push_back(nextRight);
 
-            indices.push_back(cur);
-            indices.push_back(nextRight);
-            indices.push_back(right);
+                indices.push_back(cur);
+                indices.push_back(nextRight);
+                indices.push_back(right);
+            }
         }
     }
 

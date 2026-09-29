@@ -401,7 +401,7 @@ int main() {
     Mesh treeFoliageLeafy = ModelGenerator::createSphere(2.2f, 16, 16, glm::vec3(0.22f, 0.52f, 0.18f));
 
     // D. Main Hot Air Balloon (Vibrant Rainbow Envelope + Basket)
-    Mesh rainbowEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 14, 0);
+    Mesh rainbowEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 48, 14, 0);
     Mesh equatorBelt = ModelGenerator::createBalloonEquatorBelt(4.72f, 0.08f);
     Mesh whiteSkirt = ModelGenerator::createBalloonWhiteSkirt(1.55f, 1.25f, 1.35f, 32);
     Mesh wovenBasket = ModelGenerator::createWovenBasket(2.4f, 1.8f, 2.4f);
@@ -410,8 +410,8 @@ int main() {
     Mesh riggingCable = ModelGenerator::createCylinder(0.025f, 0.025f, 3.4f, 8, glm::vec3(0.20f, 0.20f, 0.22f));
 
     // E. Background Balloons
-    Mesh sunsetEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 28, 12, 1);
-    Mesh oceanEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 28, 12, 2);
+    Mesh sunsetEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 12, 1);
+    Mesh oceanEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 12, 2);
 
     // F. Clouds, Birds & Celestial Entities
     Mesh cloudCluster = ModelGenerator::createCloudCluster();
@@ -960,10 +960,6 @@ int main() {
             sceneShader.setMat4("uModel", envModel);
             sunsetEnvelope.draw();
 
-            glm::mat4 beltModel = glm::translate(bg1Root, glm::vec3(0.0f, 5.0f, 0.0f));
-            sceneShader.setMat4("uModel", beltModel);
-            equatorBelt.draw();
-
             glm::mat4 basketModel = glm::translate(bg1Root, glm::vec3(0.0f, -0.6f, 0.0f));
             sceneShader.setMat4("uModel", basketModel);
             wovenBasket.draw();
@@ -982,10 +978,6 @@ int main() {
             sceneShader.setMat4("uModel", envModel);
             oceanEnvelope.draw();
 
-            glm::mat4 beltModel = glm::translate(bg2Root, glm::vec3(0.0f, 5.0f, 0.0f));
-            sceneShader.setMat4("uModel", beltModel);
-            equatorBelt.draw();
-
             glm::mat4 basketModel = glm::translate(bg2Root, glm::vec3(0.0f, -0.6f, 0.0f));
             sceneShader.setMat4("uModel", basketModel);
             wovenBasket.draw();
@@ -996,17 +988,12 @@ int main() {
         // ==========================================
         glm::mat4 balloonRoot = glm::translate(glm::mat4(1.0f), balloonPosition);
 
-        // A. Envelope (Rainbow Gores)
+        // A. Vibrant Rainbow Balloon Envelope
         glm::mat4 envelopeModel = glm::translate(balloonRoot, glm::vec3(0.0f, 6.8f, 0.0f));
         sceneShader.setMat4("uModel", envelopeModel);
         rainbowEnvelope.draw();
 
-        // B. White Equator Belt with Scalloped Swags
-        glm::mat4 beltModel = glm::translate(balloonRoot, glm::vec3(0.0f, 5.0f, 0.0f));
-        sceneShader.setMat4("uModel", beltModel);
-        equatorBelt.draw();
-
-        // C. White Throat Skirt Collar
+        // B. White Throat Skirt Collar
         glm::mat4 skirtModel = glm::translate(balloonRoot, glm::vec3(0.0f, 1.9f, 0.0f));
         sceneShader.setMat4("uModel", skirtModel);
         whiteSkirt.draw();
