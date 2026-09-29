@@ -77,40 +77,40 @@ struct LightingProfile {
 };
 
 LightingProfile profiles[4] = {
-    // 0: DRAMATIC OVERCAST SUNSET (Default - matching user's reference photograph!)
+    // 0: LUSH GREEN DAY (Default - bright clear sky, warm daylight making all green vegetation pop)
     {
-        glm::normalize(glm::vec3(0.65f, -0.18f, -0.72f)), // Low golden sunset sun breaking under cloud base
-        glm::vec3(1.0f, 0.74f, 0.28f),                    // Radiant golden-amber sunlight
-        glm::vec3(0.24f, 0.28f, 0.35f),                    // Moody overcast slate-navy sky fill
-        glm::vec3(0.18f, 0.32f, 0.12f),                    // Lush wetland meadow bounce
-        glm::vec3(0.10f, 0.16f, 0.24f),                    // Deep stormy cloud horizon color
+        glm::normalize(glm::vec3(0.42f, -0.88f, -0.32f)), // High daytime sun
+        glm::vec3(1.0f, 0.98f, 0.94f),                    // Warm clean white daylight
+        glm::vec3(0.42f, 0.50f, 0.62f),                    // Fresh open blue sky ambient fill
+        glm::vec3(0.22f, 0.52f, 0.22f),                    // Lush emerald meadow ground bounce
+        glm::vec3(0.44f, 0.72f, 0.96f),                    // Clear vibrant sky blue
         0.0f
     },
-    // 1: GOLDEN TWILIGHT SUNSET
+    // 1: VILLAGE GOLDEN SUNSET
     {
-        glm::normalize(glm::vec3(0.85f, -0.12f, -0.50f)),
-        glm::vec3(1.0f, 0.50f, 0.14f),
-        glm::vec3(0.28f, 0.22f, 0.32f),
-        glm::vec3(0.20f, 0.26f, 0.10f),
-        glm::vec3(0.12f, 0.14f, 0.22f),
+        glm::normalize(glm::vec3(0.78f, -0.22f, -0.44f)),
+        glm::vec3(1.0f, 0.68f, 0.36f),
+        glm::vec3(0.38f, 0.32f, 0.42f),
+        glm::vec3(0.24f, 0.38f, 0.18f),
+        glm::vec3(0.70f, 0.50f, 0.60f),
         1.5f
     },
-    // 2: MOONLIT MONSOON NIGHT
+    // 2: MOONLIT VILLAGE NIGHT
     {
-        glm::normalize(glm::vec3(0.38f, -0.88f, 0.32f)),
+        glm::normalize(glm::vec3(0.35f, -0.88f, 0.32f)),
         glm::vec3(0.28f, 0.38f, 0.55f),
         glm::vec3(0.08f, 0.10f, 0.16f),
-        glm::vec3(0.05f, 0.08f, 0.06f),
-        glm::vec3(0.04f, 0.06f, 0.12f),
+        glm::vec3(0.06f, 0.12f, 0.08f),
+        glm::vec3(0.04f, 0.08f, 0.16f),
         3.8f
     },
-    // 3: MISTY RURAL DAWN
+    // 3: FRESH MISTY DAWN
     {
-        glm::normalize(glm::vec3(-0.75f, -0.22f, -0.55f)),
-        glm::vec3(0.98f, 0.68f, 0.42f),
-        glm::vec3(0.26f, 0.28f, 0.38f),
-        glm::vec3(0.14f, 0.28f, 0.12f),
-        glm::vec3(0.14f, 0.18f, 0.28f),
+        glm::normalize(glm::vec3(-0.75f, -0.28f, -0.55f)),
+        glm::vec3(0.98f, 0.78f, 0.56f),
+        glm::vec3(0.38f, 0.42f, 0.54f),
+        glm::vec3(0.18f, 0.40f, 0.18f),
+        glm::vec3(0.55f, 0.68f, 0.82f),
         0.5f
     }
 };
@@ -179,11 +179,11 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 
 const char* getLightingModeName(LightingMode m) {
     switch (m) {
-        case LIGHT_DAY: return "OVERCAST SUNSET";
-        case LIGHT_SUNSET: return "GOLDEN TWILIGHT";
+        case LIGHT_DAY: return "LUSH GREEN DAY";
+        case LIGHT_SUNSET: return "VILLAGE SUNSET";
         case LIGHT_NIGHT: return "MOONLIT NIGHT";
         case LIGHT_DAWN: return "MISTY DAWN";
-        default: return "OVERCAST SUNSET";
+        default: return "LUSH GREEN DAY";
     }
 }
 
@@ -372,15 +372,16 @@ int main() {
     Mesh floodlightHead = ModelGenerator::createCone(0.42f, 0.65f, 14, glm::vec3(0.20f, 0.20f, 0.22f));
     Mesh floodlightLens = ModelGenerator::createCylinder(0.38f, 0.38f, 0.05f, 14, glm::vec3(1.0f, 0.98f, 0.85f));
 
-    // C. Traditional Rural Landscape Elements (Matching user's reference photo)
+    // C. Traditional Rural Landscape Elements (Lush Green Village)
     Mesh villageHut = ModelGenerator::createVillageHut();
     Mesh banyanTree = ModelGenerator::createBanyanShadeTree();
     Mesh palmTreeStd = ModelGenerator::createPalmTree(10.5f, 3.5f);
     Mesh palmTreeTall = ModelGenerator::createPalmTree(13.5f, -4.5f);
+    Mesh bananaTree = ModelGenerator::createBananaTree();
+    Mesh lushBush = ModelGenerator::createLushBush(1.5f);
     Mesh reedClusterDense = ModelGenerator::createReedCluster(18, 1.9f);
     Mesh reedClusterLight = ModelGenerator::createReedCluster(10, 1.4f);
     Mesh wetlandWater = ModelGenerator::createWetlandWater(140.0f, 75.0f);
-    Mesh skyBackdrop = ModelGenerator::createSkyBackdrop(220.0f, 85.0f);
     Mesh rusticBoulder = ModelGenerator::createSphere(1.1f, 10, 10, glm::vec3(0.38f, 0.36f, 0.32f));
 
     // D. Main Hot Air Balloon (Vibrant Rainbow Envelope + Basket)
@@ -424,7 +425,72 @@ int main() {
         {{ 4.4f, -0.7f,  -4.0f}, 1.4f}
     };
 
-    // Horizon Coconut Palms (Dense silhouette along the sunset break line matching reference photo)
+    // Lush Banyan & Leafy Village Shade Trees
+    struct BanyanInstance {
+        glm::vec3 pos;
+        float scale;
+        float rotY;
+    };
+    std::vector<BanyanInstance> banyanTrees = {
+        {{ 13.8f, 0.0f,  32.5f}, 1.18f,  15.0f}, // Overhanging cottage on the left
+        {{-18.0f, 0.0f,  24.0f}, 1.25f, -35.0f}, // Across the dirt road
+        {{-42.0f, 0.0f,  32.0f}, 1.35f,  45.0f}, // Far meadow
+        {{ 35.0f, 0.0f,  18.0f}, 1.15f, -70.0f}, // Near the pond bank
+        {{ 12.0f, 0.0f,  68.0f}, 1.30f,  25.0f}, // Background grove
+        {{-26.0f, 0.0f, -18.0f}, 1.10f,  80.0f}  // Near launch platform edge
+    };
+
+    // Traditional Bengali Banana Tree Clusters (কলা বাগান)
+    struct BananaInstance {
+        glm::vec3 pos;
+        float scale;
+        float rotY;
+    };
+    std::vector<BananaInstance> bananaTrees = {
+        // Cluster behind and to the right of the cottage
+        {{ 27.5f, 0.0f,  33.0f}, 1.10f,  25.0f},
+        {{ 28.8f, 0.0f,  35.2f}, 0.95f, -40.0f},
+        {{ 26.2f, 0.0f,  36.5f}, 1.20f,  75.0f},
+        // Cluster on the pond bank
+        {{ 22.0f, 0.0f,  44.0f}, 1.15f, -15.0f},
+        {{ 23.5f, 0.0f,  46.2f}, 1.00f,  60.0f},
+        // Cluster near trail curve
+        {{  9.5f, 0.0f,  24.0f}, 1.05f, -80.0f},
+        {{ 11.2f, 0.0f,  25.5f}, 1.25f,  30.0f},
+        // Cluster in left village garden
+        {{-14.5f, 0.0f,  28.0f}, 1.10f,  45.0f},
+        {{-16.0f, 0.0f,  30.2f}, 1.20f, -65.0f}
+    };
+
+    // Dense Green Bush & Shrub Clumps (গ্রামের সবুজ ঝোপঝাড়)
+    struct BushInstance {
+        glm::vec3 pos;
+        float scale;
+    };
+    std::vector<BushInstance> villageBushes = {
+        // Cottage perimeter & garden
+        {{ 16.5f, 0.0f,  30.5f}, 1.10f},
+        {{ 17.5f, 0.0f,  34.0f}, 1.25f},
+        {{ 25.5f, 0.0f,  28.0f}, 0.95f},
+        {{ 26.8f, 0.0f,  30.0f}, 1.15f},
+        // Along footpath
+        {{  4.8f, 0.0f,  15.0f}, 1.05f},
+        {{  8.5f, 0.0f,  20.0f}, 1.20f},
+        {{ 13.5f, 0.0f,  26.0f}, 1.10f},
+        // Around launchpad perimeter
+        {{ -9.2f, 0.0f,   2.0f}, 1.15f},
+        {{  9.2f, 0.0f,   2.0f}, 1.00f},
+        {{ -8.5f, 0.0f,  -8.5f}, 1.20f},
+        // Around banyan trees
+        {{-17.0f, 0.0f,  22.5f}, 1.30f},
+        {{-19.5f, 0.0f,  25.0f}, 1.10f},
+        {{ 36.5f, 0.0f,  16.5f}, 1.25f},
+        // Water edge
+        {{ 30.0f, 0.0f,  40.0f}, 1.15f},
+        {{ 40.0f, 0.0f,  36.0f}, 1.20f}
+    };
+
+    // Horizon Coconut Palms (Dense silhouette along the horizon)
     struct HorizonPalm {
         glm::vec3 pos;
         float scale;
@@ -663,15 +729,10 @@ int main() {
         glm::mat4 model(1.0f);
 
         // ==========================================
-        // 1. Draw Celestial Sun / Moon Disc & Sky Backdrop
+        // 1. Draw Celestial Sun / Moon Disc
         // ==========================================
         sceneShader.setFloat("uEmissive", 1.0f);
         sceneShader.setFloat("uFogDensity", 0.0f);
-
-        // Sky backdrop (Panoramic pre-monsoon storm clouds with radiant golden sunset break)
-        model = glm::translate(glm::mat4(1.0f), glm::vec3(camera.position.x * 0.25f, -6.0f, camera.position.z * 0.25f));
-        sceneShader.setMat4("uModel", model);
-        skyBackdrop.draw();
 
         // Sun disc
         glm::vec3 celestialPos = camera.position - curSunDir * 160.0f;
@@ -801,7 +862,7 @@ int main() {
         windsockCone.draw();
 
         // ==========================================
-        // 5. Draw Traditional Rural Landscape (Matching Reference Photo)
+        // 5. Draw Lush Green Rural Village Environment (সবুজ শ্যামল গ্রাম)
         // ==========================================
         // A. Traditional Village Cottage / Hut with Terracotta Hip Roof
         glm::vec3 hutPos(21.0f, 0.0f, 31.0f);
@@ -810,34 +871,44 @@ int main() {
         sceneShader.setMat4("uModel", model);
         villageHut.draw();
 
-        // B. Large Spreading Banyan / Mango Shade Tree (Left of hut, arching over roof)
-        glm::vec3 banyanPos(13.8f, 0.0f, 32.5f);
-        model = glm::translate(glm::mat4(1.0f), banyanPos);
-        model = glm::rotate(model, glm::radians(15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.18f, 1.12f, 1.18f));
-        sceneShader.setMat4("uModel", model);
-        banyanTree.draw();
+        // B. Large Spreading Banyan / Mango Shade Trees (Shady Village Canopy)
+        for (const auto& bt : banyanTrees) {
+            model = glm::translate(glm::mat4(1.0f), bt.pos);
+            model = glm::rotate(model, glm::radians(bt.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(bt.scale, bt.scale, bt.scale));
+            sceneShader.setMat4("uModel", model);
+            banyanTree.draw();
+        }
 
-        // Second banyan tree in mid-distance meadow
-        glm::vec3 banyan2Pos(-38.0f, 0.0f, 28.0f);
-        model = glm::translate(glm::mat4(1.0f), banyan2Pos);
-        model = glm::rotate(model, glm::radians(-40.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.30f, 1.25f, 1.30f));
-        sceneShader.setMat4("uModel", model);
-        banyanTree.draw();
+        // C. Traditional Bengali Banana Trees (কলা গাছ)
+        for (const auto& bn : bananaTrees) {
+            model = glm::translate(glm::mat4(1.0f), bn.pos);
+            model = glm::rotate(model, glm::radians(bn.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(bn.scale, bn.scale, bn.scale));
+            sceneShader.setMat4("uModel", model);
+            bananaTree.draw();
+        }
 
-        // C. Wetland Water Mirror (Right of the hut, reflecting the golden sky)
+        // D. Dense Green Bushes & Shrubbery (গ্রামের সবুজ ঝোপঝাড়)
+        for (const auto& bu : villageBushes) {
+            model = glm::translate(glm::mat4(1.0f), bu.pos);
+            model = glm::scale(model, glm::vec3(bu.scale, bu.scale, bu.scale));
+            sceneShader.setMat4("uModel", model);
+            lushBush.draw();
+        }
+
+        // E. Village Pond Water Mirror (Fresh Blue-Green Reflective Water)
         glm::vec3 waterPos(46.0f, -0.02f, 36.0f);
         model = glm::translate(glm::mat4(1.0f), waterPos);
         model = glm::rotate(model, glm::radians(8.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         sceneShader.setMat4("uModel", model);
-        sceneShader.setFloat("uSpecularStrength", 0.75f);
+        sceneShader.setFloat("uSpecularStrength", 0.85f);
         sceneShader.setFloat("uShininess", 64.0f);
         wetlandWater.draw();
         sceneShader.setFloat("uSpecularStrength", 0.40f);
         sceneShader.setFloat("uShininess", 32.0f);
 
-        // D. Horizon Tropical Coconut Palm Silhouettes
+        // F. Horizon Tropical Coconut Palm Groves
         for (const auto& palm : horizonPalms) {
             model = glm::translate(glm::mat4(1.0f), palm.pos);
             model = glm::rotate(model, glm::radians(palm.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -850,7 +921,7 @@ int main() {
             }
         }
 
-        // E. Wild Reed & Tall Grass Clusters (Foreground, Trailside & Waterbank)
+        // G. Fresh Green Wild Reeds & Tall Grass (Trailside, Garden & Pond Banks)
         for (const auto& reed : reedPatches) {
             model = glm::translate(glm::mat4(1.0f), reed.pos);
             model = glm::rotate(model, glm::radians(reed.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -863,7 +934,7 @@ int main() {
             }
         }
 
-        // F. Weathered Mossy Boulders & Earth Mounds
+        // H. Weathered Earth Boulders
         for (size_t i = 0; i < boulderPositions.size(); ++i) {
             float bScale = 0.75f + (i % 3) * 0.25f;
             model = glm::translate(glm::mat4(1.0f), boulderPositions[i]);

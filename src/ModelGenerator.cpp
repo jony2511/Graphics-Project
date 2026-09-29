@@ -298,32 +298,31 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
 
             glm::vec3 norm = glm::normalize(glm::vec3((hL - hR) / (2.0f * eps), 1.0f, (hD - hU) / (2.0f * eps)));
 
-            // Rich multi-tone organic wetland vegetation palette matching reference photograph:
-            // Deep emerald paddy, moist marsh moss, sun-kissed golden reeds, earthy moist soil
-            float n1 = std::sin(posX * 0.09f + posZ * 0.07f);
-            float n2 = std::cos(posX * 0.045f - posZ * 0.065f + 1.4f);
+            // Rich, vibrant lush green rural village palette:
+            float n1 = std::sin(posX * 0.08f + posZ * 0.06f);
+            float n2 = std::cos(posX * 0.04f - posZ * 0.05f + 1.2f);
             float noise = (n1 + n2) * 0.5f; // [-1.0, 1.0]
 
-            glm::vec3 deepMoss(0.12f, 0.28f, 0.10f);       // Deep damp marsh green
-            glm::vec3 marshEmerald(0.18f, 0.44f, 0.15f);   // Lush vibrant paddy green
-            glm::vec3 sunlitGrass(0.28f, 0.52f, 0.18f);    // Sun-kissed golden-green reeds
-            glm::vec3 earthySoil(0.34f, 0.28f, 0.18f);     // Moist earth patches
+            glm::vec3 deepGardenGreen(0.12f, 0.48f, 0.16f); // Deep lush green
+            glm::vec3 paddyEmerald(0.18f, 0.62f, 0.20f);    // Vibrant Bengali paddy green
+            glm::vec3 meadowSpring(0.26f, 0.72f, 0.24f);    // Bright fresh spring grass
+            glm::vec3 sunlitField(0.32f, 0.76f, 0.28f);     // Sun-warmed grassy knoll
 
             glm::vec3 vertColor;
-            if (noise < -0.25f) {
-                float t = (noise + 1.0f) / 0.75f;
-                vertColor = glm::mix(deepMoss, marshEmerald, glm::clamp(t, 0.0f, 1.0f));
-            } else if (noise < 0.35f) {
-                float t = (noise + 0.25f) / 0.60f;
-                vertColor = glm::mix(marshEmerald, sunlitGrass, glm::clamp(t, 0.0f, 1.0f));
+            if (noise < -0.20f) {
+                float t = (noise + 1.0f) / 0.80f;
+                vertColor = glm::mix(deepGardenGreen, paddyEmerald, glm::clamp(t, 0.0f, 1.0f));
+            } else if (noise < 0.40f) {
+                float t = (noise + 0.20f) / 0.60f;
+                vertColor = glm::mix(paddyEmerald, meadowSpring, glm::clamp(t, 0.0f, 1.0f));
             } else {
-                float t = (noise - 0.35f) / 0.65f;
-                vertColor = glm::mix(sunlitGrass, earthySoil, glm::clamp(t, 0.0f, 1.0f));
+                float t = (noise - 0.40f) / 0.60f;
+                vertColor = glm::mix(meadowSpring, sunlitField, glm::clamp(t, 0.0f, 1.0f));
             }
 
             // Elevation and slope modulation for natural shading
-            float slopeFactor = glm::clamp(norm.y, 0.7f, 1.0f);
-            vertColor *= (0.85f + 0.15f * slopeFactor);
+            float slopeFactor = glm::clamp(norm.y, 0.75f, 1.0f);
+            vertColor *= (0.90f + 0.10f * slopeFactor);
 
             vertices.push_back({{posX, posY, posZ}, norm, vertColor, {(float)x / subdivisions, (float)z / subdivisions}});
         }
@@ -511,12 +510,12 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<unsigned int> indices;
 
     const int numSteps = 54;
-    const float roadWidth = 4.2f;
+    const float roadWidth = 3.2f;
 
-    // Earthy rural dirt trail colors matching the photograph
-    glm::vec3 pathCenter(0.48f, 0.40f, 0.28f);  // Sandy-mud worn dirt
-    glm::vec3 pathRut(0.35f, 0.28f, 0.18f);     // Dark moist wheel/foot depressions
-    glm::vec3 pathGrass(0.24f, 0.38f, 0.16f);   // Encroaching grass edge
+    // Natural rural earthen footpath with lush green encroaching borders
+    glm::vec3 pathCenter(0.54f, 0.46f, 0.34f);  // Light beaten earth track
+    glm::vec3 pathRut(0.42f, 0.36f, 0.26f);     // Soft earth depression
+    glm::vec3 pathGrass(0.22f, 0.64f, 0.24f);   // Fresh vibrant green grass encroaching path
 
     for (int i = 0; i <= numSteps; ++i) {
         float t = (float)i / (float)numSteps;
@@ -1478,10 +1477,10 @@ Mesh ModelGenerator::createBanyanShadeTree() {
     addCylinderSeg({2.8f, 6.0f, 0.8f}, {4.8f, 7.2f, 1.8f}, 0.38f, 0.22f, barkCol, 8);
     addCylinderSeg({-2.4f, 6.2f, 1.2f}, {-4.2f, 7.0f, 2.2f}, 0.42f, 0.24f, barkCol, 8);
 
-    // 3. Multi-Tiered Layered Foliage Clusters (Photorealistic Organic Canopy)
-    glm::vec3 darkGreen(0.12f, 0.26f, 0.09f);   // Deep inner shade leaves
-    glm::vec3 emeraldGreen(0.18f, 0.40f, 0.14f); // Rich lush green
-    glm::vec3 sunlitGreen(0.32f, 0.52f, 0.18f);  // Warm sun-kissed foliage
+    // 3. Multi-Tiered Layered Foliage Clusters (Lush Vibrant Green Canopy)
+    glm::vec3 darkGreen(0.10f, 0.44f, 0.14f);    // Deep rich shade leaves
+    glm::vec3 emeraldGreen(0.16f, 0.60f, 0.18f); // Rich lush green canopy
+    glm::vec3 sunlitGreen(0.24f, 0.70f, 0.22f);  // Sunlit vibrant foliage
 
     addFoliageCluster({0.0f, 8.8f, 0.0f}, {3.8f, 2.8f, 3.8f}, sunlitGreen);
     addFoliageCluster({-2.8f, 7.2f, 1.4f}, {3.2f, 2.4f, 3.2f}, emeraldGreen);
@@ -1553,7 +1552,7 @@ Mesh ModelGenerator::createPalmTree(float height, float tiltAngleDeg) {
     const int numFronds = 12;
     const int frondSteps = 8;
     float frondLen = 4.2f;
-    glm::vec3 frondCol(0.16f, 0.42f, 0.14f);
+    glm::vec3 frondCol(0.12f, 0.62f, 0.16f);
 
     for (int f = 0; f < numFronds; ++f) {
         float fAngle = 2.0f * (float)M_PI * (float)f / (float)numFronds;
@@ -1600,8 +1599,8 @@ Mesh ModelGenerator::createReedCluster(int bladeCount, float height) {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    glm::vec3 stalkBase(0.20f, 0.42f, 0.14f);
-    glm::vec3 stalkTip(0.58f, 0.52f, 0.22f); // Golden seed tip
+    glm::vec3 stalkBase(0.14f, 0.62f, 0.18f); // Fresh vibrant green reed stalk
+    glm::vec3 stalkTip(0.25f, 0.74f, 0.22f);  // Spring green reed tip
 
     for (int i = 0; i < bladeCount; ++i) {
         float angle = (float)i * (2.0f * (float)M_PI / (float)bladeCount);
@@ -1641,7 +1640,7 @@ Mesh ModelGenerator::createWetlandWater(float width, float depth) {
     float halfW = width * 0.5f;
     float halfD = depth * 0.5f;
 
-    glm::vec3 waterDeep(0.08f, 0.16f, 0.22f); // Dark reflective wetland marsh water
+    glm::vec3 waterDeep(0.14f, 0.40f, 0.52f); // Fresh reflective village pond water
     glm::vec3 norm(0.0f, 1.0f, 0.0f);
 
     for (int z = 0; z <= subsZ; ++z) {
@@ -1722,6 +1721,163 @@ Mesh ModelGenerator::createSkyBackdrop(float radius, float height) {
             indices.push_back(cur + 1);
             indices.push_back(next + 1);
             indices.push_back(next);
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createBananaTree() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    // 1. Soft green layered pseudo-stem trunk (tapered & gently tilted)
+    const int trunkRings = 8;
+    const int trunkSectors = 8;
+    float trunkHeight = 3.6f;
+    float rBase = 0.32f;
+    float rTop = 0.18f;
+
+    glm::vec3 stemBase(0.38f, 0.62f, 0.25f);
+    glm::vec3 stemTop(0.48f, 0.74f, 0.28f);
+
+    for (int r = 0; r <= trunkRings; ++r) {
+        float frac = (float)r / (float)trunkRings;
+        float y = frac * trunkHeight;
+        float radius = glm::mix(rBase, rTop, frac);
+        float leanX = 0.25f * frac * frac;
+        float leanZ = 0.15f * frac;
+        glm::vec3 col = glm::mix(stemBase, stemTop, frac);
+
+        for (int s = 0; s <= trunkSectors; ++s) {
+            float angle = 2.0f * (float)M_PI * (float)s / (float)trunkSectors;
+            float cx = std::cos(angle);
+            float cz = std::sin(angle);
+            glm::vec3 norm(cx, 0.15f, cz);
+            norm = glm::normalize(norm);
+            glm::vec3 pos(leanX + cx * radius, y, leanZ + cz * radius);
+            vertices.push_back({pos, norm, col, {(float)s / trunkSectors, frac}});
+        }
+    }
+
+    for (int r = 0; r < trunkRings; ++r) {
+        for (int s = 0; s < trunkSectors; ++s) {
+            unsigned int cur = r * (trunkSectors + 1) + s;
+            unsigned int next = cur + (trunkSectors + 1);
+
+            indices.push_back(cur);
+            indices.push_back(next);
+            indices.push_back(cur + 1);
+
+            indices.push_back(cur + 1);
+            indices.push_back(next);
+            indices.push_back(next + 1);
+        }
+    }
+
+    // 2. Large broad drooping emerald paddle leaves (8 leaves around top)
+    const int numLeaves = 8;
+    const int leafSteps = 7;
+    float leafLen = 3.2f;
+    glm::vec3 leafMidrib(0.55f, 0.78f, 0.32f);
+    glm::vec3 leafBlade(0.18f, 0.70f, 0.22f);
+
+    glm::vec3 trunkCrown(0.25f, trunkHeight, 0.15f);
+
+    for (int l = 0; l < numLeaves; ++l) {
+        float lAngle = 2.0f * (float)M_PI * (float)l / (float)numLeaves + (float)l * 0.15f;
+        float droopRate = 0.95f + 0.35f * std::sin((float)l * 2.1f);
+
+        glm::vec3 dir(std::cos(lAngle), 0.0f, std::sin(lAngle));
+        glm::vec3 side(-dir.z, 0.0f, dir.x);
+        glm::vec3 norm(0.0f, 1.0f, 0.0f);
+
+        for (int st = 0; st < leafSteps; ++st) {
+            float t0 = (float)st / (float)leafSteps;
+            float t1 = (float)(st + 1) / (float)leafSteps;
+
+            float r0 = t0 * leafLen;
+            float r1 = t1 * leafLen;
+            float y0 = trunkCrown.y + t0 * 0.6f - t0 * t0 * droopRate * 1.8f;
+            float y1 = trunkCrown.y + t1 * 0.6f - t1 * t1 * droopRate * 1.8f;
+
+            float w0 = std::sin(t0 * (float)M_PI) * 0.75f + 0.08f;
+            float w1 = std::sin(t1 * (float)M_PI) * 0.75f + 0.08f;
+
+            glm::vec3 c0 = trunkCrown + dir * r0; c0.y = y0;
+            glm::vec3 c1 = trunkCrown + dir * r1; c1.y = y1;
+
+            glm::vec3 p0L = c0 - side * w0;
+            glm::vec3 p0R = c0 + side * w0;
+            glm::vec3 p1L = c1 - side * w1;
+            glm::vec3 p1R = c1 + side * w1;
+
+            unsigned int b = (unsigned int)vertices.size();
+            vertices.push_back({p0L, norm, leafBlade, {0.0f, t0}});
+            vertices.push_back({c0, norm, leafMidrib, {0.5f, t0}});
+            vertices.push_back({p0R, norm, leafBlade, {1.0f, t0}});
+            vertices.push_back({p1L, norm, leafBlade, {0.0f, t1}});
+            vertices.push_back({c1, norm, leafMidrib, {0.5f, t1}});
+            vertices.push_back({p1R, norm, leafBlade, {1.0f, t1}});
+
+            // Left quad
+            indices.push_back(b); indices.push_back(b+3); indices.push_back(b+1);
+            indices.push_back(b+1); indices.push_back(b+3); indices.push_back(b+4);
+            // Right quad
+            indices.push_back(b+1); indices.push_back(b+4); indices.push_back(b+2);
+            indices.push_back(b+2); indices.push_back(b+4); indices.push_back(b+5);
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createLushBush(float radius) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const int rings = 9;
+    const int sectors = 12;
+
+    glm::vec3 bushDark(0.14f, 0.52f, 0.16f);
+    glm::vec3 bushBright(0.24f, 0.72f, 0.22f);
+
+    for (int r = 0; r <= rings; ++r) {
+        float phi = (float)r / (float)rings * ((float)M_PI * 0.55f);
+        float sinP = std::sin(phi);
+        float cosP = std::cos(phi);
+
+        for (int s = 0; s <= sectors; ++s) {
+            float theta = (float)s / (float)sectors * 2.0f * (float)M_PI;
+            float sinT = std::sin(theta);
+            float cosT = std::cos(theta);
+
+            float ruffle = 1.0f + 0.18f * std::sin(theta * 3.0f) * std::cos(phi * 4.0f)
+                                + 0.12f * std::cos(theta * 5.0f);
+
+            glm::vec3 norm(sinP * cosT, cosP, sinP * sinT);
+            glm::vec3 pos = norm * (radius * ruffle);
+            pos.y *= 0.75f;
+
+            float sunFactor = std::max(cosP, 0.0f);
+            glm::vec3 col = glm::mix(bushDark, bushBright, sunFactor);
+
+            vertices.push_back({pos, norm, col, {(float)s / sectors, (float)r / rings}});
+        }
+    }
+
+    for (int r = 0; r < rings; ++r) {
+        for (int s = 0; s < sectors; ++s) {
+            unsigned int cur = r * (sectors + 1) + s;
+            unsigned int next = cur + (sectors + 1);
+
+            indices.push_back(cur);
+            indices.push_back(next);
+            indices.push_back(cur + 1);
+
+            indices.push_back(cur + 1);
+            indices.push_back(next);
+            indices.push_back(next + 1);
         }
     }
 

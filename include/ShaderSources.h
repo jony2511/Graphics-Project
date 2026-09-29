@@ -118,12 +118,12 @@ void main() {
 
     vec3 result = ambient + dirDiffuse + dirSpecular + pointDiffuse + pointSpecular + spotDiffuse + spotSpecular;
 
-    // --- Realistic Atmospheric Distance Fog & Horizon Haze ---
+    // --- Natural Soft Distance Fog & Horizon Haze ---
     float dist = length(uViewPos - FragPos);
-    float fogStart = 28.0;
-    float fogEnd = 210.0;
-    float fogFactor = clamp((dist - fogStart) / (fogEnd - fogStart), 0.0, 0.82);
-    vec3 fogColor = mix(uSkyColor * 1.05, uDirLightColor * 0.88, 0.32);
+    float fogStart = 70.0;
+    float fogEnd = 240.0;
+    float fogFactor = clamp((dist - fogStart) / (fogEnd - fogStart), 0.0, 0.75);
+    vec3 fogColor = uSkyColor;
     result = mix(result, fogColor, fogFactor * uFogDensity);
 
     FragColor = vec4(result, uAlpha);

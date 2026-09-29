@@ -22,10 +22,12 @@ public:
     static Mesh createCurvedDirtRoad();
     static Mesh createHayBale(float radius, float length);
 
-    // Authentic Rural Landscape & Architecture (Matching Reference Photo)
+    // Authentic Rural Landscape & Architecture (Lush Green Village)
     static Mesh createVillageHut();
     static Mesh createBanyanShadeTree();
     static Mesh createPalmTree(float height = 11.0f, float tiltAngleDeg = 4.5f);
+    static Mesh createBananaTree();
+    static Mesh createLushBush(float radius = 1.6f);
     static Mesh createReedCluster(int bladeCount = 14, float height = 1.8f);
     static Mesh createWetlandWater(float width, float depth);
     static Mesh createSkyBackdrop(float radius, float height);
