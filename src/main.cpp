@@ -39,9 +39,21 @@ float lastFrame = 0.0f;
 // Simulation State
 bool isPaused = false;
 bool burnerActive = true;
+float simulationTime = 0.0f;
+
+// Physical Balloon Flight Parameters
 float balloonAltitude = 4.2f;
 glm::vec3 balloonPosition(0.0f, 4.2f, 0.0f);
-float simulationTime = 0.0f;
+glm::vec3 balloonVelocity(0.0f, 0.0f, 0.0f);
+float basketSwayRoll = 0.0f;
+float basketSwayPitch = 0.0f;
+
+// Wind Physics System
+float windSpeed = 14.5f;       // km/h
+float windHeadingDeg = 48.0f;  // Degrees from North
+glm::vec3 windVector(0.0f);    // Computed normalized horizontal direction * speed
+
+// Windmill & Environmental Rotation
 float windmillAngle = 0.0f;
 
 // Day-to-Night Lighting Modes
@@ -53,7 +65,7 @@ enum LightingMode {
 };
 LightingMode currentLightMode = LIGHT_DAY;
 
-// Lighting Lerp State
+// Lighting Lerp Profile
 struct LightingProfile {
     glm::vec3 sunDir;
     glm::vec3 sunColor;
@@ -64,7 +76,7 @@ struct LightingProfile {
 };
 
 LightingProfile profiles[4] = {
-    // 0: DAY (Warm bright sun, crisp blue sky)
+    // 0: DAY
     {
         glm::normalize(glm::vec3(0.55f, -0.85f, -0.40f)),
         glm::vec3(1.0f, 0.98f, 0.92f),
@@ -73,7 +85,7 @@ LightingProfile profiles[4] = {
         glm::vec3(0.50f, 0.76f, 0.95f),
         0.0f
     },
-    // 1: SUNSET (Golden hour, deep amber sun, rose/purple sky)
+    // 1: SUNSET
     {
         glm::normalize(glm::vec3(0.85f, -0.26f, -0.45f)),
         glm::vec3(1.0f, 0.52f, 0.16f),
@@ -82,7 +94,7 @@ LightingProfile profiles[4] = {
         glm::vec3(0.86f, 0.44f, 0.32f),
         1.5f
     },
-    // 2: NIGHT (Midnight navy, cool pale silver moonlight, full spotlight)
+    // 2: NIGHT
     {
         glm::normalize(glm::vec3(0.38f, -0.88f, 0.32f)),
         glm::vec3(0.32f, 0.42f, 0.65f),
@@ -91,7 +103,7 @@ LightingProfile profiles[4] = {
         glm::vec3(0.06f, 0.08f, 0.16f),
         3.8f
     },
-    // 3: DAWN (Soft peach and lavender morning light)
+    // 3: DAWN
     {
         glm::normalize(glm::vec3(-0.75f, -0.35f, -0.55f)),
         glm::vec3(0.98f, 0.72f, 0.50f),
@@ -102,7 +114,6 @@ LightingProfile profiles[4] = {
     }
 };
 
-// Current smoothly interpolated lighting parameters
 glm::vec3 curSunDir = profiles[0].sunDir;
 glm::vec3 curSunColor = profiles[0].sunColor;
 glm::vec3 curAmbientColor = profiles[0].ambientColor;
@@ -114,7 +125,7 @@ float curSpotIntensity = profiles[0].spotIntensity;
 struct Cloud {
     glm::vec3 position;
     float scale;
-    float speed;
+    float speedMultiplier;
 };
 
 // Bird in flock data structure
@@ -167,10 +178,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 
 const char* getLightingModeName(LightingMode m) {
     switch (m) {
-        case LIGHT_DAY: return "DAY (Sunlight)";
-        case LIGHT_SUNSET: return "SUNSET (Golden Hour)";
-        case LIGHT_NIGHT: return "NIGHT (Moonlit & Spotlight)";
-        case LIGHT_DAWN: return "DAWN (Morning Sunrise)";
+        case LIGHT_DAY: return "DAY";
+        case LIGHT_SUNSET: return "SUNSET";
+        case LIGHT_NIGHT: return "NIGHT";
+        case LIGHT_DAWN: return "DAWN";
         default: return "DAY";
     }
 }
@@ -233,7 +244,7 @@ void processInput(GLFWwindow* window) {
     // F: Toggle Burner Flame
     if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && !fPressed) {
         burnerActive = !burnerActive;
-        std::cout << "[BURNER] " << (burnerActive ? "FIRE ON (Ascending)" : "OFF (Idle)") << "\n";
+        std::cout << "[BURNER] " << (burnerActive ? "FIRE ON (Ascending)" : "OFF (Idle/Descending)") << "\n";
         fPressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) {
         fPressed = false;
@@ -252,6 +263,7 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && !rPressed) {
         balloonAltitude = 4.2f;
         balloonPosition = glm::vec3(0.0f, 4.2f, 0.0f);
+        balloonVelocity = glm::vec3(0.0f);
         simulationTime = 0.0f;
         std::cout << "[SCENE] Reset to Launch Position\n";
         rPressed = true;
@@ -298,7 +310,7 @@ int main() {
     glfwWindowHint(GLFW_SAMPLES, 4);
 
     // 2. Create Window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Hot Air Balloon 3D - Phase 4: Multi-Source Lighting & Day/Night Cycle", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Hot Air Balloon 3D - Phase 5: Dynamic Physics, Aerodynamics & Life", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -320,18 +332,17 @@ int main() {
     }
 
     std::cout << "========================================================\n";
-    std::cout << "  Hot Air Balloon 3D: Phase 4 Operational\n";
+    std::cout << "  Hot Air Balloon 3D: Phase 5 Operational\n";
     std::cout << "  OpenGL Version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << "\n";
     std::cout << "  Renderer:       " << glGetString(GL_RENDERER) << "\n";
     std::cout << "========================================================\n";
-    std::cout << "Phase 4 Lighting Features Active:\n";
-    std::cout << "  * Full Phong Illumination (Ambient + Diffuse + Specular)\n";
-    std::cout << "  * Day-to-Night Lighting Cycle: [L] toggles Day -> Sunset -> Night -> Dawn\n";
-    std::cout << "  * Directional Celestial Light with Orbiting Sun / Moon Discs\n";
-    std::cout << "  * Point Light: Dynamic Burner Flame with Distance Attenuation\n";
-    std::cout << "  * Spotlight: Launch-Pad Mast Floodlight Illuminating Platform at Night\n";
-    std::cout << "  * Two Area Lights: Sky Dome Fill + Meadow Ground Bounce\n";
-    std::cout << "  * Dynamic Ground Shadow: Projects onto terrain, shifts with Sun & shrinks with altitude\n";
+    std::cout << "Phase 5 Physics & Dynamic Features Active:\n";
+    std::cout << "  * Aerodynamic Balloon Ascent & Horizontal Wind Drift Physics\n";
+    std::cout << "  * Damped Multi-Axis Harmonic Basket Pendulum Sway\n";
+    std::cout << "  * Wind Vector Engine: Wind-responsive Windsock, Clouds & Windmill\n";
+    std::cout << "  * Flocking Birds with Dynamic Banking & Hinged Wing-Flapping\n";
+    std::cout << "  * Independent Multi-Balloon Trajectory Hierarchies\n";
+    std::cout << "  * Controls: [F] Burner Toggle | [L] Day/Night | [1-4] Cameras\n";
     std::cout << "========================================================\n";
 
     glEnable(GL_DEPTH_TEST);
@@ -387,7 +398,7 @@ int main() {
     Mesh treeFoliagePine = ModelGenerator::createCone(2.4f, 4.5f, 12, glm::vec3(0.14f, 0.40f, 0.16f));
     Mesh treeFoliageLeafy = ModelGenerator::createSphere(2.2f, 16, 16, glm::vec3(0.22f, 0.52f, 0.18f));
 
-    // D. Main Hot Air Balloon (Rainbow Envelope + Wicker Basket)
+    // D. Main Hot Air Balloon (Vibrant Rainbow Envelope + Basket)
     Mesh rainbowEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 14, 0);
     Mesh equatorBelt = ModelGenerator::createBalloonEquatorBelt(4.72f, 0.08f);
     Mesh whiteSkirt = ModelGenerator::createBalloonWhiteSkirt(1.55f, 1.25f, 1.35f, 32);
@@ -400,24 +411,23 @@ int main() {
     Mesh sunsetEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 28, 12, 1);
     Mesh oceanEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 28, 12, 2);
 
-    // F. Clouds, Birds & Sky Entities
+    // F. Clouds, Birds & Celestial Entities
     Mesh cloudCluster = ModelGenerator::createCloudCluster();
     Mesh birdBody = ModelGenerator::createBirdBody();
     Mesh birdLeftWing = ModelGenerator::createBirdWing(true);
     Mesh birdRightWing = ModelGenerator::createBirdWing(false);
 
-    // G. Celestial Sun / Moon Disc & Ground Projected Shadow
     Mesh celestialDisc = ModelGenerator::createSphere(7.5f, 18, 18, glm::vec3(1.0f, 0.95f, 0.75f));
     Mesh groundShadow = ModelGenerator::createShadowDisc(5.2f, 32);
 
-    // Initial Cloud positions
+    // Clouds layout
     std::vector<Cloud> clouds = {
-        {{-40.0f, 32.0f, -30.0f}, 1.3f, 1.8f},
-        {{ 10.0f, 38.0f, -50.0f}, 1.6f, 2.2f},
-        {{ 55.0f, 28.0f, -20.0f}, 1.1f, 1.5f},
-        {{-20.0f, 42.0f,  30.0f}, 1.4f, 2.0f},
-        {{ 35.0f, 35.0f,  45.0f}, 1.2f, 1.6f},
-        {{-60.0f, 30.0f,  15.0f}, 1.5f, 1.9f}
+        {{-40.0f, 32.0f, -30.0f}, 1.3f, 1.0f},
+        {{ 10.0f, 38.0f, -50.0f}, 1.6f, 1.2f},
+        {{ 55.0f, 28.0f, -20.0f}, 1.1f, 0.9f},
+        {{-20.0f, 42.0f,  30.0f}, 1.4f, 1.1f},
+        {{ 35.0f, 35.0f,  45.0f}, 1.2f, 0.95f},
+        {{-60.0f, 30.0f,  15.0f}, 1.5f, 1.05f}
     };
 
     // Bird flock
@@ -428,7 +438,6 @@ int main() {
         {{-4.4f, -0.8f,  -4.0f}, 1.1f},
         {{ 4.4f, -0.7f,  -4.0f}, 1.4f}
     };
-    glm::vec3 flockBasePos(-50.0f, 24.0f, -10.0f);
 
     // Trees layout
     struct TreeInstance {
@@ -483,40 +492,66 @@ int main() {
         if (!isPaused) {
             simulationTime += deltaTime;
 
-            // Balloon vertical ascent & drift
+            // ==========================================
+            // 1. Dynamic Wind Vector Engine
+            // ==========================================
+            windSpeed = 14.0f + 4.2f * std::sin(simulationTime * 0.25f) + 2.0f * std::cos(simulationTime * 0.65f);
+            windHeadingDeg = 48.0f + 8.5f * std::sin(simulationTime * 0.18f);
+            float windHeadingRad = glm::radians(windHeadingDeg);
+            windVector = glm::vec3(std::cos(windHeadingRad), 0.0f, std::sin(windHeadingRad)) * (windSpeed * 0.28f);
+
+            // ==========================================
+            // 2. Aerodynamic Balloon Ascent & Drift Physics
+            // ==========================================
             if (burnerActive) {
-                if (balloonAltitude < 18.0f) {
-                    balloonAltitude += 1.4f * deltaTime;
-                } else {
-                    balloonAltitude = 18.0f + 0.8f * std::sin(simulationTime * 0.8f);
+                // Buoyancy lift force minus drag
+                float targetAscentRate = 2.2f;
+                balloonVelocity.y += (targetAscentRate - balloonVelocity.y) * 0.8f * deltaTime;
+                balloonAltitude += balloonVelocity.y * deltaTime;
+                if (balloonAltitude > 38.0f) {
+                    balloonAltitude = 38.0f;
+                    balloonVelocity.y = 0.0f;
                 }
             } else {
-                if (balloonAltitude > 4.2f) {
-                    balloonAltitude -= 1.6f * deltaTime;
-                } else {
+                // Cooling descent with terminal velocity
+                float targetDescentRate = -1.8f;
+                balloonVelocity.y += (targetDescentRate - balloonVelocity.y) * 0.65f * deltaTime;
+                balloonAltitude += balloonVelocity.y * deltaTime;
+                if (balloonAltitude < 4.2f) {
                     balloonAltitude = 4.2f;
+                    balloonVelocity.y = 0.0f;
                 }
             }
-            float driftX = 2.5f * std::sin(simulationTime * 0.25f);
-            balloonPosition = glm::vec3(driftX, balloonAltitude, 0.0f);
 
-            // Windmill rotation
-            windmillAngle += 45.0f * deltaTime;
+            // Horizontal wind drag and drift (smooth inertia)
+            float driftTargetX = windVector.x * (balloonAltitude / 14.0f);
+            float driftTargetZ = windVector.z * (balloonAltitude / 14.0f);
+            balloonVelocity.x += (driftTargetX - balloonVelocity.x) * 0.25f * deltaTime;
+            balloonVelocity.z += (driftTargetZ - balloonVelocity.z) * 0.25f * deltaTime;
+
+            balloonPosition.x += balloonVelocity.x * deltaTime;
+            balloonPosition.z += balloonVelocity.z * deltaTime;
+            balloonPosition.y = balloonAltitude;
+
+            // Multi-Axis Basket Pendulum Sway Physics
+            float swayFreq = 2.3f;
+            float naturalDamping = 0.95f;
+            float windGustForce = (windSpeed / 15.0f);
+            basketSwayRoll = (3.4f * std::sin(simulationTime * swayFreq) + balloonVelocity.x * 2.2f) * windGustForce * naturalDamping;
+            basketSwayPitch = (2.6f * std::cos(simulationTime * (swayFreq * 0.88f)) + balloonVelocity.z * 2.2f) * windGustForce * naturalDamping;
+
+            // ==========================================
+            // 3. Environmental Rotations & Drifts
+            // ==========================================
+            // Windmill rotation speed directly driven by wind speed
+            windmillAngle += (windSpeed * 3.4f) * deltaTime;
             if (windmillAngle > 360.0f) windmillAngle -= 360.0f;
 
-            // Clouds drift
+            // Clouds drift with wind vector
             for (auto& c : clouds) {
-                c.position.x += c.speed * deltaTime;
-                if (c.position.x > 110.0f) c.position.x = -110.0f;
-            }
-
-            // Bird flock flight
-            flockBasePos.x += 6.5f * deltaTime;
-            flockBasePos.z += 1.8f * deltaTime;
-            flockBasePos.y = 24.0f + 1.2f * std::sin(simulationTime * 0.6f);
-            if (flockBasePos.x > 110.0f) {
-                flockBasePos.x = -110.0f;
-                flockBasePos.z = -35.0f;
+                c.position += windVector * (c.speedMultiplier * 0.4f) * deltaTime;
+                if (c.position.x > 120.0f) c.position.x = -120.0f;
+                if (c.position.z > 120.0f) c.position.z = -120.0f;
             }
         }
 
@@ -533,15 +568,16 @@ int main() {
         processInput(window);
         camera.update(deltaTime, balloonPosition);
 
-        // Update Window Title
+        // Update Window Title with Live Telemetry
         frameCount++;
         if (currentFrame - lastTitleUpdate >= 0.25) {
             float fps = frameCount / static_cast<float>(currentFrame - lastTitleUpdate);
             std::ostringstream ss;
-            ss << "Hot Air Balloon 3D | " << getLightingModeName(currentLightMode)
-               << " [L] | " << camera.getModeName()
-               << " | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
-               << " | Burner: [" << (burnerActive ? "ON" : "OFF") << "] [F]"
+            ss << "Hot Air Balloon 3D | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
+               << " | Wind: " << static_cast<int>(windSpeed) << " km/h (" << static_cast<int>(windHeadingDeg) << " deg)"
+               << " | Burner: [" << (burnerActive ? "FIRE (F)" : "OFF (F)") << "]"
+               << " | Mode: " << camera.getModeName()
+               << " | " << getLightingModeName(currentLightMode) << " [L]"
                << " | FPS: " << static_cast<int>(fps);
             glfwSetWindowTitle(window, ss.str().c_str());
             frameCount = 0;
@@ -566,25 +602,22 @@ int main() {
         sceneShader.setVec3("uViewPos", camera.position);
 
         // Set Light Uniforms
-        // 1. Directional Sun / Moon
         sceneShader.setVec3("uDirLightDir", curSunDir);
         sceneShader.setVec3("uDirLightColor", curSunColor);
-
-        // 2. Two Area Lights (Sky Fill + Ground Bounce)
         sceneShader.setVec3("uAmbientColor", curAmbientColor);
         sceneShader.setVec3("uGroundBounceColor", curGroundBounce);
 
-        // 3. Point Light (Burner Flame)
+        // Point Light (Burner Flame inside balloon)
         glm::vec3 burnerPos = balloonPosition + glm::vec3(0.0f, 1.3f, 0.0f);
-        float flameFlicker = 1.0f + 0.22f * std::sin(simulationTime * 22.0f) * std::cos(simulationTime * 31.0f);
+        float flameFlicker = 1.0f + 0.24f * std::sin(simulationTime * 22.0f) * std::cos(simulationTime * 31.0f);
         sceneShader.setVec3("uPointLightPos", burnerPos);
         sceneShader.setVec3("uPointLightColor", glm::vec3(1.0f, 0.62f, 0.12f));
-        sceneShader.setFloat("uPointLightIntensity", burnerActive ? (2.2f * flameFlicker) : 0.2f);
+        sceneShader.setFloat("uPointLightIntensity", burnerActive ? (2.4f * flameFlicker) : 0.2f);
 
-        // 4. Spotlight (Launch-Pad Night Light on Mast)
+        // Spotlight (Launch-Pad Mast Night Light)
         glm::vec3 mastPos(9.8f, 0.0f, -9.8f);
         glm::vec3 spotLightPos = mastPos + glm::vec3(-0.35f, 8.2f, 0.35f);
-        glm::vec3 spotLightDir = glm::normalize(glm::vec3(-0.75f, -1.0f, 0.75f)); // Aim at center of platform
+        glm::vec3 spotLightDir = glm::normalize(glm::vec3(-0.75f, -1.0f, 0.75f));
         sceneShader.setVec3("uSpotLightPos", spotLightPos);
         sceneShader.setVec3("uSpotLightDir", spotLightDir);
         sceneShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
@@ -592,7 +625,6 @@ int main() {
         sceneShader.setFloat("uSpotLightOuterCutOff", std::cos(glm::radians(48.0f)));
         sceneShader.setFloat("uSpotLightIntensity", curSpotIntensity);
 
-        // Material defaults
         sceneShader.setFloat("uSpecularStrength", 0.40f);
         sceneShader.setFloat("uShininess", 32.0f);
         sceneShader.setFloat("uAlpha", 1.0f);
@@ -601,7 +633,7 @@ int main() {
         glm::mat4 model(1.0f);
 
         // ==========================================
-        // 1. Draw Celestial Sun / Moon Disc in the Sky
+        // 1. Draw Celestial Sun / Moon Disc
         // ==========================================
         glm::vec3 celestialPos = camera.position - curSunDir * 160.0f;
         model = glm::translate(glm::mat4(1.0f), celestialPos);
@@ -621,17 +653,14 @@ int main() {
         // ==========================================
         // 3. Draw Dynamic Ground Shadow
         // ==========================================
-        // Projects the balloon/basket onto the ground plane along the light vector
         if (curSunDir.y < -0.1f) {
             float tShadow = -(balloonPosition.y - 0.06f) / curSunDir.y;
             float shadowX = balloonPosition.x + tShadow * curSunDir.x;
             float shadowZ = balloonPosition.z + tShadow * curSunDir.z;
 
-            // Shadow shrinks and diffuses as altitude rises
             float shadowScale = 1.0f / (1.0f + 0.032f * balloonPosition.y);
             float shadowAlpha = glm::clamp(0.55f - 0.012f * balloonPosition.y, 0.14f, 0.55f);
 
-            // In night mode, fade sun shadow and show spotlight shadow
             if (currentLightMode == LIGHT_NIGHT) {
                 shadowAlpha *= 0.45f;
             }
@@ -643,7 +672,6 @@ int main() {
             sceneShader.setFloat("uSpecularStrength", 0.0f);
             groundShadow.draw();
 
-            // Reset material
             sceneShader.setFloat("uAlpha", 1.0f);
             sceneShader.setFloat("uSpecularStrength", 0.40f);
         }
@@ -701,19 +729,18 @@ int main() {
             fenceRail.draw();
         }
 
-        // Mast
+        // Windsock mast
         model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(0.0f, 4.25f, 0.0f));
         sceneShader.setMat4("uModel", model);
         windsockPole.draw();
 
-        // Spotlight fixture on mast
+        // Spotlight fixture
         model = glm::translate(glm::mat4(1.0f), spotLightPos);
         model = glm::rotate(model, glm::radians(135.0f), glm::vec3(0, 1, 0));
         model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1, 0, 0));
         sceneShader.setMat4("uModel", model);
         floodlightHead.draw();
 
-        // Glowing spotlight lens when active
         if (curSpotIntensity > 0.1f) {
             model = glm::translate(glm::mat4(1.0f), spotLightPos + glm::vec3(-0.1f, -0.1f, 0.1f));
             sceneShader.setMat4("uModel", model);
@@ -722,8 +749,11 @@ int main() {
             sceneShader.setFloat("uEmissive", 0.0f);
         }
 
-        float windHeading = 48.0f + 8.0f * std::sin(simulationTime * 1.4f);
-        float sockFlutter = 82.0f + 5.0f * std::sin(simulationTime * 4.5f);
+        // Windsock physically reacting to wind heading and flutter
+        float windHeading = windHeadingDeg;
+        float baseTilt = glm::mix(105.0f, 74.0f, glm::clamp(windSpeed / 25.0f, 0.0f, 1.0f));
+        float sockFlutter = baseTilt + 4.5f * std::sin(simulationTime * (8.0f + windSpeed * 0.4f));
+
         model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(0.0f, 8.3f, 0.0f));
         model = glm::rotate(model, glm::radians(windHeading), glm::vec3(0, 1, 0));
         model = glm::rotate(model, glm::radians(sockFlutter), glm::vec3(1, 0, 0));
@@ -761,7 +791,7 @@ int main() {
         sceneShader.setMat4("uModel", model);
         siloCap.draw();
 
-        // Windmill
+        // Windmill (Continuous dynamic rotation)
         glm::vec3 windmillPos(38.0f, 0.5f, -28.0f);
         glm::mat4 windmillBaseTrans = glm::translate(glm::mat4(1.0f), windmillPos);
 
@@ -873,7 +903,7 @@ int main() {
         }
 
         // ==========================================
-        // 6. Draw Atmospheric Clouds & Flapping Birds
+        // 6. Draw Clouds & Flocking Birds
         // ==========================================
         for (const auto& c : clouds) {
             model = glm::translate(glm::mat4(1.0f), c.position);
@@ -882,15 +912,24 @@ int main() {
             cloudCluster.draw();
         }
 
+        // Flocking Birds with Dynamic Banking Path
+        float flightAngle = simulationTime * 0.12f;
+        float flightR = 65.0f;
+        glm::vec3 flockCenter(std::sin(flightAngle) * flightR * 1.2f, 25.0f + 4.0f * std::sin(flightAngle * 2.0f), std::cos(flightAngle) * flightR);
+        glm::vec3 flockVelocity(std::cos(flightAngle) * flightR * 1.2f, 8.0f * std::cos(flightAngle * 2.0f), -std::sin(flightAngle) * flightR);
+        float birdYaw = glm::degrees(std::atan2(flockVelocity.x, flockVelocity.z));
+        float birdBank = -std::sin(flightAngle) * 20.0f; // Aviation banking roll into the turn
+
         for (const auto& b : flock) {
-            glm::vec3 birdPos = flockBasePos + b.offset;
+            glm::vec3 birdPos = flockCenter + b.offset;
             glm::mat4 birdRoot = glm::translate(glm::mat4(1.0f), birdPos);
-            birdRoot = glm::rotate(birdRoot, glm::radians(75.0f), glm::vec3(0, 1, 0));
+            birdRoot = glm::rotate(birdRoot, glm::radians(birdYaw), glm::vec3(0, 1, 0));
+            birdRoot = glm::rotate(birdRoot, glm::radians(birdBank), glm::vec3(0, 0, 1));
 
             sceneShader.setMat4("uModel", birdRoot);
             birdBody.draw();
 
-            float flapAngle = std::sin(simulationTime * 9.5f + b.flapPhase) * 26.0f;
+            float flapAngle = std::sin(simulationTime * 9.5f + b.flapPhase) * 28.0f;
 
             glm::mat4 lWingModel = glm::rotate(birdRoot, glm::radians(-flapAngle), glm::vec3(0, 0, 1));
             sceneShader.setMat4("uModel", lWingModel);
@@ -902,12 +941,13 @@ int main() {
         }
 
         // ==========================================
-        // 7. Draw Background Balloons
+        // 7. Draw Background Balloons (Decoupled Hierarchies)
         // ==========================================
         {
-            float bg1Alt = 26.0f + 1.8f * std::sin(simulationTime * 0.45f + 1.2f);
-            float bg1DriftX = 36.0f + 3.0f * std::sin(simulationTime * 0.18f);
-            glm::vec3 bg1Pos(bg1DriftX, bg1Alt, -42.0f);
+            float bg1Alt = 26.0f + 2.2f * std::sin(simulationTime * 0.45f + 1.2f);
+            float bg1DriftX = 36.0f + 4.5f * std::sin(simulationTime * 0.18f);
+            float bg1DriftZ = -42.0f + 2.0f * std::cos(simulationTime * 0.20f);
+            glm::vec3 bg1Pos(bg1DriftX, bg1Alt, bg1DriftZ);
 
             glm::mat4 bg1Root = glm::translate(glm::mat4(1.0f), bg1Pos);
             bg1Root = glm::scale(bg1Root, glm::vec3(0.55f, 0.55f, 0.55f));
@@ -926,9 +966,10 @@ int main() {
         }
 
         {
-            float bg2Alt = 22.0f + 1.4f * std::cos(simulationTime * 0.35f + 0.6f);
-            float bg2DriftX = -42.0f + 2.5f * std::cos(simulationTime * 0.15f);
-            glm::vec3 bg2Pos(bg2DriftX, bg2Alt, -58.0f);
+            float bg2Alt = 22.0f + 1.6f * std::cos(simulationTime * 0.35f + 0.6f);
+            float bg2DriftX = -42.0f + 3.5f * std::cos(simulationTime * 0.15f);
+            float bg2DriftZ = -58.0f + 2.2f * std::sin(simulationTime * 0.14f);
+            glm::vec3 bg2Pos(bg2DriftX, bg2Alt, bg2DriftZ);
 
             glm::mat4 bg2Root = glm::translate(glm::mat4(1.0f), bg2Pos);
             bg2Root = glm::scale(bg2Root, glm::vec3(0.38f, 0.38f, 0.38f));
@@ -976,14 +1017,14 @@ int main() {
             glm::mat4 flameModel = glm::translate(balloonRoot, glm::vec3(0.0f, 1.4f, 0.0f));
             flameModel = glm::scale(flameModel, glm::vec3(flameScale, flameScale * 1.35f, flameScale));
             sceneShader.setMat4("uModel", flameModel);
-            sceneShader.setFloat("uEmissive", 1.0f); // Flame glows bright regardless of ambient
+            sceneShader.setFloat("uEmissive", 1.0f);
             burnerFlame.draw();
             sceneShader.setFloat("uEmissive", 0.0f);
         }
 
-        // E. Woven Basket with Pendulum Sway
-        float swayAngle = 3.6f * std::sin(simulationTime * 2.2f);
-        glm::mat4 basketTransform = glm::rotate(balloonRoot, glm::radians(swayAngle), glm::vec3(0, 0, 1));
+        // E. Woven Basket with Dynamic Multi-Axis Sway
+        glm::mat4 basketTransform = glm::rotate(balloonRoot, glm::radians(basketSwayRoll), glm::vec3(0, 0, 1));
+        basketTransform = glm::rotate(basketTransform, glm::radians(basketSwayPitch), glm::vec3(1, 0, 0));
 
         glm::mat4 basketModel = glm::translate(basketTransform, glm::vec3(0.0f, -0.6f, 0.0f));
         sceneShader.setMat4("uModel", basketModel);
