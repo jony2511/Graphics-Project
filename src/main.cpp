@@ -40,6 +40,7 @@ float lastFrame = 0.0f;
 // Simulation State
 bool isPaused = false;
 bool burnerActive = true;
+bool showHud = false; // Set to false per user request: "scene er modde thaka lekha gula bad daw"
 float simulationTime = 0.0f;
 
 // Physical Balloon Flight Parameters
@@ -270,6 +271,16 @@ void processInput(GLFWwindow* window) {
         rPressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_R) == GLFW_RELEASE) {
         rPressed = false;
+    }
+
+    // H: Toggle HUD Text Overlay
+    static bool hPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS && !hPressed) {
+        showHud = !showHud;
+        std::cout << "[HUD] " << (showHud ? "ENABLED" : "DISABLED") << "\n";
+        hPressed = true;
+    } else if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE) {
+        hPressed = false;
     }
 
     // Free-fly Camera Movement
@@ -1093,20 +1104,22 @@ int main() {
         }
 
         // ==========================================
-        // 9. Render 2D Orthographic Avionics HUD Overlay
+        // 9. Render 2D Orthographic Avionics HUD Overlay (Disabled by default per user request)
         // ==========================================
-        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-        hud.renderDashboard(
-            fbWidth, fbHeight,
-            balloonPosition.y,
-            balloonVelocity.y,
-            windSpeed,
-            windHeadingDeg,
-            burnerActive,
-            static_cast<int>(camera.mode),
-            static_cast<int>(currentLightMode),
-            currentFps
-        );
+        if (showHud) {
+            glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+            hud.renderDashboard(
+                fbWidth, fbHeight,
+                balloonPosition.y,
+                balloonVelocity.y,
+                windSpeed,
+                windHeadingDeg,
+                burnerActive,
+                static_cast<int>(camera.mode),
+                static_cast<int>(currentLightMode),
+                currentFps
+            );
+        }
 
         // ==========================================
         // 10. Swap Buffers & Poll Events

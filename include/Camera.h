@@ -44,7 +44,7 @@ public:
     float turnSpeed;
     float fov;
 
-    Camera(glm::vec3 startPos = glm::vec3(0.0f, 16.0f, 38.0f));
+    Camera(glm::vec3 startPos = glm::vec3(-18.0f, 13.0f, -32.0f));
 
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix(float aspectRatio) const;

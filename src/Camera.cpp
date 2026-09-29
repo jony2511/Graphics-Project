@@ -5,10 +5,10 @@
 Camera::Camera(glm::vec3 startPos)
     : mode(CAMERA_OVERVIEW),
       position(startPos),
-      front(glm::vec3(0.0f, -0.3f, -1.0f)),
+      front(glm::vec3(0.45f, -0.22f, 0.86f)),
       worldUp(glm::vec3(0.0f, 1.0f, 0.0f)),
-      yaw(-90.0f),
-      pitch(-15.0f),
+      yaw(62.0f),
+      pitch(-13.0f),
       movementSpeed(15.0f),
       turnSpeed(65.0f),
       fov(45.0f) {
@@ -26,9 +26,9 @@ glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {
 void Camera::setMode(CameraMode newMode) {
     mode = newMode;
     if (mode == CAMERA_OVERVIEW) {
-        position = glm::vec3(0.0f, 18.0f, 42.0f);
-        yaw = -90.0f;
-        pitch = -18.0f;
+        position = glm::vec3(-18.0f, 13.0f, -32.0f);
+        yaw = 62.0f;
+        pitch = -13.0f;
         updateCameraVectors();
     } else if (mode == CAMERA_FREE_FLY) {
         // Retain current position, keep vectors active
@@ -41,27 +41,27 @@ void Camera::update(float deltaTime, const glm::vec3& balloonPos) {
 
     switch (mode) {
         case CAMERA_OVERVIEW: {
-            position = glm::vec3(0.0f, 18.0f, 42.0f);
-            glm::vec3 target = balloonPos + glm::vec3(0.0f, 2.0f, 0.0f);
+            position = glm::vec3(-18.0f, 13.0f, -32.0f);
+            glm::vec3 target = balloonPos + glm::vec3(5.0f, 2.0f, 12.0f);
             front = glm::normalize(target - position);
             right = glm::normalize(glm::cross(front, worldUp));
             up = glm::normalize(glm::cross(right, front));
             break;
         }
         case CAMERA_FOLLOW: {
-            // Positioned behind and slightly above the balloon
-            glm::vec3 offset(0.0f, 5.0f, 22.0f);
+            // Positioned behind and slightly above the balloon, looking forward towards the village
+            glm::vec3 offset(0.0f, 5.0f, -22.0f);
             position = balloonPos + offset;
-            glm::vec3 lookTarget = balloonPos + glm::vec3(0.0f, 2.5f, 0.0f);
+            glm::vec3 lookTarget = balloonPos + glm::vec3(0.0f, 2.0f, 12.0f);
             front = glm::normalize(lookTarget - position);
             right = glm::normalize(glm::cross(front, worldUp));
             up = glm::normalize(glm::cross(right, front));
             break;
         }
         case CAMERA_BASKET_POV: {
-            // Positioned directly inside the basket looking forward across the horizon
+            // Positioned directly inside the basket looking forward across the village
             position = balloonPos + glm::vec3(0.0f, -2.2f, 0.0f);
-            front = glm::vec3(0.0f, 0.05f, -1.0f);
+            front = glm::vec3(0.35f, 0.02f, 0.93f);
             right = glm::normalize(glm::cross(front, worldUp));
             up = glm::normalize(glm::cross(right, front));
             break;
