@@ -14,13 +14,14 @@
 #include <string>
 #include <iomanip>
 #include <sstream>
+#include <cmath>
 
 // Window settings
-const unsigned int SCR_WIDTH = 1024;
-const unsigned int SCR_HEIGHT = 720;
+const unsigned int SCR_WIDTH = 1200;
+const unsigned int SCR_HEIGHT = 800;
 
 // Camera
-Camera camera(glm::vec3(0.0f, 16.0f, 38.0f));
+Camera camera(glm::vec3(0.0f, 18.0f, 44.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -36,6 +37,7 @@ bool burnerActive = true;
 float balloonAltitude = 2.5f;
 glm::vec3 balloonPosition(0.0f, 2.5f, 0.0f);
 float simulationTime = 0.0f;
+float windmillAngle = 0.0f;
 
 // Callbacks
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -55,12 +57,11 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     }
 
     float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    float yoffset = lastY - ypos;
 
     lastX = xpos;
     lastY = ypos;
 
-    // Only orbit/look if Free-fly mode is active AND right mouse button is held
     if (camera.mode == CAMERA_FREE_FLY && rightMousePressed) {
         camera.processMouseMovement(xoffset, yoffset);
     }
@@ -80,7 +81,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     camera.processMouseScroll(static_cast<float>(yoffset));
 }
 
-// Input handler for discrete actions and continuous movement
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -94,7 +94,7 @@ void processInput(GLFWwindow* window) {
 
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS && !key1Pressed) {
         camera.setMode(CAMERA_OVERVIEW);
-        std::cout << "[CAMERA] Switched to Mode 1: Overview\n";
+        std::cout << "[CAMERA] Switched to Mode 1: Overview (Scenic Landscape View)\n";
         key1Pressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_1) == GLFW_RELEASE) {
         key1Pressed = false;
@@ -110,7 +110,7 @@ void processInput(GLFWwindow* window) {
 
     if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS && !key3Pressed) {
         camera.setMode(CAMERA_FREE_FLY);
-        std::cout << "[CAMERA] Switched to Mode 3: Free-fly (Use WASD / Arrow Keys)\n";
+        std::cout << "[CAMERA] Switched to Mode 3: Free-fly (WASD + QE + Arrow Keys / Right Mouse)\n";
         key3Pressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_RELEASE) {
         key3Pressed = false;
@@ -118,7 +118,7 @@ void processInput(GLFWwindow* window) {
 
     if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS && !key4Pressed) {
         camera.setMode(CAMERA_BASKET_POV);
-        std::cout << "[CAMERA] Switched to Mode 4: Basket POV\n";
+        std::cout << "[CAMERA] Switched to Mode 4: Basket POV (Passenger Horizon View)\n";
         key4Pressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_4) == GLFW_RELEASE) {
         key4Pressed = false;
@@ -170,10 +170,10 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4); // 4x Multisampling
+    glfwWindowHint(GLFW_SAMPLES, 4);
 
     // 2. Create Window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Hot Air Balloon 3D - Phase 1 Architecture & Camera System", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Hot Air Balloon 3D - Phase 2: Procedural Rural Landscape & Architecture", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -195,20 +195,20 @@ int main() {
     }
 
     std::cout << "========================================================\n";
-    std::cout << "  Hot Air Balloon 3D: Phase 1 Operational\n";
+    std::cout << "  Hot Air Balloon 3D: Phase 2 Operational\n";
     std::cout << "  OpenGL Version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << "\n";
     std::cout << "  Renderer:       " << glGetString(GL_RENDERER) << "\n";
     std::cout << "========================================================\n";
-    std::cout << "Controls:\n";
-    std::cout << "  [1] Overview Camera Mode\n";
-    std::cout << "  [2] Follow Balloon Camera Mode\n";
-    std::cout << "  [3] Free-fly Mode (WASD + QE + Arrow Keys / Right Mouse)\n";
-    std::cout << "  [4] Basket POV Camera Mode\n";
-    std::cout << "  [Space] Pause / Resume simulation\n";
-    std::cout << "  [Esc] Exit Application\n";
+    std::cout << "Phase 2 Features Active:\n";
+    std::cout << "  * Vast Rolling Rural Meadow Terrain & Surrounding Hills\n";
+    std::cout << "  * Winding Curved Dirt Country Road\n";
+    std::cout << "  * Countryside Red Barn with Gabled Roof & Grain Silo\n";
+    std::cout << "  * Traditional Dutch Windmill with Rotating Lattice Sails\n";
+    std::cout << "  * Farmhouse Country Cottage with Stone Chimney\n";
+    std::cout << "  * Golden Cylindrical Hay Bales & Pasture Split-Rail Fences\n";
+    std::cout << "  * Timber Launchpad with Fence, Gate & Striped Windsock\n";
     std::cout << "========================================================\n";
 
-    // Configure Global OpenGL State
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_MULTISAMPLE);
@@ -216,17 +216,108 @@ int main() {
     // 4. Build and Compile Shaders
     Shader sceneShader(SCENE_VERTEX_SHADER, SCENE_FRAGMENT_SHADER);
 
-    // 5. Generate Procedural 3D Meshes
-    // A. Rural Meadow Ground Plane
-    Mesh meadowPlane = ModelGenerator::createPlane(180.0f, 180.0f, 40, glm::vec3(0.28f, 0.58f, 0.22f));
+    // 5. Generate Procedural 3D Meshes for Rural Landscape
+    // A. Terrain & Road
+    Mesh rollingTerrain = ModelGenerator::createRollingTerrain(240.0f, 240.0f, 80);
+    Mesh dirtRoad = ModelGenerator::createCurvedDirtRoad();
 
-    // B. Wooden Launch Platform
-    Mesh launchPlatform = ModelGenerator::createCube(16.0f, 0.4f, 16.0f, glm::vec3(0.55f, 0.38f, 0.24f));
+    // B. Wooden Launch Platform & Enclosure
+    Mesh launchPlatform = ModelGenerator::createCube(16.0f, 0.4f, 16.0f, glm::vec3(0.56f, 0.38f, 0.24f));
     Mesh platformBorder = ModelGenerator::createCube(16.4f, 0.45f, 0.4f, glm::vec3(0.38f, 0.24f, 0.15f));
     Mesh fencePost = ModelGenerator::createCube(0.25f, 1.4f, 0.25f, glm::vec3(0.42f, 0.28f, 0.18f));
     Mesh fenceRail = ModelGenerator::createCube(3.8f, 0.12f, 0.12f, glm::vec3(0.48f, 0.32f, 0.20f));
 
-    // C. Main Hot Air Balloon
+    // Platform Mast & Windsock
+    Mesh windsockPole = ModelGenerator::createCylinder(0.12f, 0.12f, 8.5f, 12, glm::vec3(0.72f, 0.72f, 0.76f));
+    Mesh windsockCone = ModelGenerator::createStripedWindsock(0.50f, 0.22f, 2.4f, 16, 5);
+    Mesh floodlightHead = ModelGenerator::createCone(0.35f, 0.5f, 12, glm::vec3(0.20f, 0.20f, 0.22f));
+
+    // C. Countryside Red Barn
+    Mesh barnWalls = ModelGenerator::createCube(14.0f, 6.5f, 18.0f, glm::vec3(0.68f, 0.18f, 0.14f));
+    Mesh barnRoof = ModelGenerator::createPrism(15.2f, 4.2f, 18.8f, glm::vec3(0.25f, 0.25f, 0.28f));
+    Mesh barnDoors = ModelGenerator::createCube(4.0f, 4.5f, 0.2f, glm::vec3(0.92f, 0.90f, 0.85f));
+    Mesh barnDoorCross = ModelGenerator::createCube(3.6f, 0.25f, 0.25f, glm::vec3(0.68f, 0.18f, 0.14f));
+    Mesh siloTower = ModelGenerator::createCylinder(2.4f, 2.4f, 10.0f, 18, glm::vec3(0.65f, 0.65f, 0.68f));
+    Mesh siloCap = ModelGenerator::createSphere(2.45f, 12, 18, glm::vec3(0.45f, 0.45f, 0.48f));
+
+    // D. Dutch Country Windmill
+    Mesh windmillBase = ModelGenerator::createCylinder(4.6f, 3.2f, 13.5f, 16, glm::vec3(0.78f, 0.74f, 0.68f));
+    Mesh windmillRoof = ModelGenerator::createCone(3.6f, 3.8f, 16, glm::vec3(0.32f, 0.22f, 0.16f));
+    Mesh windmillBalcony = ModelGenerator::createCylinder(4.2f, 4.2f, 0.35f, 16, glm::vec3(0.42f, 0.28f, 0.18f));
+    Mesh windmillHub = ModelGenerator::createSphere(0.75f, 12, 12, glm::vec3(0.28f, 0.24f, 0.20f));
+    Mesh windmillBlade = ModelGenerator::createWindmillBlade(7.8f, 1.35f, glm::vec3(0.45f, 0.30f, 0.18f), glm::vec3(0.92f, 0.90f, 0.82f));
+
+    // E. Farmhouse Country Cottage
+    Mesh cottageWalls = ModelGenerator::createCube(9.0f, 4.5f, 7.5f, glm::vec3(0.85f, 0.80f, 0.70f));
+    Mesh cottageRoof = ModelGenerator::createPrism(10.0f, 3.0f, 8.2f, glm::vec3(0.75f, 0.32f, 0.18f));
+    Mesh cottageChimney = ModelGenerator::createCube(1.2f, 5.2f, 1.2f, glm::vec3(0.45f, 0.42f, 0.40f));
+    Mesh cottageDoor = ModelGenerator::createCube(1.4f, 2.8f, 0.15f, glm::vec3(0.42f, 0.25f, 0.14f));
+
+    // F. Rural Props (Hay Bales, Split-Rail Fences, Boulders)
+    Mesh hayBale = ModelGenerator::createHayBale(1.1f, 2.2f);
+    Mesh pastureFencePost = ModelGenerator::createCube(0.2f, 1.2f, 0.2f, glm::vec3(0.45f, 0.30f, 0.18f));
+    Mesh pastureFenceRail = ModelGenerator::createCube(4.2f, 0.10f, 0.10f, glm::vec3(0.50f, 0.34f, 0.20f));
+    Mesh boulder = ModelGenerator::createSphere(1.2f, 10, 10, glm::vec3(0.52f, 0.52f, 0.50f));
+
+    // G. Flora (Evergreen Conifers & Deciduous Leafy Trees)
+    Mesh treeTrunk = ModelGenerator::createCylinder(0.45f, 0.35f, 4.0f, 12, glm::vec3(0.42f, 0.25f, 0.14f));
+    Mesh treeFoliagePine = ModelGenerator::createCone(2.4f, 4.5f, 12, glm::vec3(0.14f, 0.40f, 0.16f));
+    Mesh treeFoliageLeafy = ModelGenerator::createSphere(2.2f, 16, 16, glm::vec3(0.22f, 0.52f, 0.18f));
+
+    // Trees layout across rural valley
+    struct TreeInstance {
+        glm::vec3 pos;
+        float scale;
+        bool isPine;
+    };
+    std::vector<TreeInstance> trees = {
+        // Group near Barn
+        {{-42.0f, 0.0f,  18.0f}, 1.3f, false},
+        {{-45.0f, 0.0f,  30.0f}, 1.5f, false},
+        {{-22.0f, 0.0f,  32.0f}, 1.1f, false},
+        {{-28.0f, 0.0f,  12.0f}, 1.2f, true},
+
+        // Group along the Dirt Road
+        {{ 10.0f, 0.0f,  20.0f}, 1.0f, false},
+        {{ 14.0f, 0.0f,  38.0f}, 1.2f, false},
+        {{-04.0f, 0.0f,  45.0f}, 1.1f, true},
+        {{ 32.0f, 0.0f,  65.0f}, 1.4f, false},
+
+        // Group around Windmill knoll
+        {{ 45.0f, 1.2f, -18.0f}, 1.3f, true},
+        {{ 42.0f, 1.0f, -34.0f}, 1.4f, true},
+        {{ 26.0f, 0.2f, -32.0f}, 1.2f, false},
+
+        // Periphery hill forests
+        {{-55.0f, 3.5f, -25.0f}, 1.6f, true},
+        {{-60.0f, 4.2f, -10.0f}, 1.5f, true},
+        {{-50.0f, 2.8f, -42.0f}, 1.7f, true},
+        {{ 55.0f, 3.0f,  15.0f}, 1.5f, true},
+        {{ 62.0f, 4.0f,  30.0f}, 1.6f, true},
+        {{-15.0f, 0.0f, -30.0f}, 1.2f, true},
+        {{ 12.0f, 0.0f, -28.0f}, 1.1f, true},
+        {{-20.0f, 0.0f, -18.0f}, 1.3f, true},
+        {{ 22.0f, 0.0f, -16.0f}, 1.2f, false}
+    };
+
+    // Hay bales positions in harvested pasture
+    std::vector<glm::vec3> hayBalePositions = {
+        {-20.0f, 1.1f, 16.0f},
+        {-16.0f, 1.1f, 22.0f},
+        {-24.0f, 1.1f, 20.0f},
+        {-22.0f, 1.1f, 26.0f},
+        {-18.0f, 1.1f, 28.0f}
+    };
+
+    // Boulders positions
+    std::vector<glm::vec3> boulderPositions = {
+        { 16.0f, 0.6f, -10.0f},
+        {-12.0f, 0.5f,  12.0f},
+        { 24.0f, 0.7f,  16.0f},
+        {-26.0f, 0.8f, -14.0f}
+    };
+
+    // H. Main Hot Air Balloon (from Phase 1)
     Mesh balloonEnvelope = ModelGenerator::createBalloonEnvelope(4.2f, 8.5f, 32, 48);
     Mesh basket = ModelGenerator::createCube(2.2f, 1.6f, 2.2f, glm::vec3(0.68f, 0.45f, 0.24f));
     Mesh basketRim = ModelGenerator::createCube(2.35f, 0.2f, 2.35f, glm::vec3(0.50f, 0.30f, 0.14f));
@@ -234,52 +325,28 @@ int main() {
     Mesh burnerRing = ModelGenerator::createCylinder(0.55f, 0.55f, 0.25f, 16, glm::vec3(0.25f, 0.25f, 0.28f));
     Mesh burnerFlame = ModelGenerator::createCone(0.45f, 1.2f, 16, glm::vec3(1.0f, 0.55f, 0.05f));
 
-    // D. Surrounding Trees & Rural Props
-    Mesh treeTrunk = ModelGenerator::createCylinder(0.45f, 0.35f, 4.0f, 12, glm::vec3(0.42f, 0.25f, 0.14f));
-    Mesh treeFoliagePine = ModelGenerator::createCone(2.4f, 4.5f, 12, glm::vec3(0.15f, 0.42f, 0.18f));
-    Mesh treeFoliageLeafy = ModelGenerator::createSphere(2.2f, 16, 16, glm::vec3(0.22f, 0.52f, 0.18f));
-    Mesh windsockPole = ModelGenerator::createCylinder(0.12f, 0.12f, 8.0f, 12, glm::vec3(0.70f, 0.70f, 0.75f));
-    Mesh windsockCloth = ModelGenerator::createCylinder(0.45f, 0.20f, 2.2f, 12, glm::vec3(0.95f, 0.30f, 0.10f));
-
-    // Tree positions in the surrounding rural meadow
-    struct TreeInstance {
-        glm::vec3 pos;
-        float scale;
-        bool isPine;
-    };
-    std::vector<TreeInstance> trees = {
-        {{-18.0f, 0.0f, -14.0f}, 1.2f, true},
-        {{-24.0f, 0.0f,  10.0f}, 1.0f, false},
-        {{ 20.0f, 0.0f, -18.0f}, 1.3f, true},
-        {{ 25.0f, 0.0f,  12.0f}, 1.1f, false},
-        {{-32.0f, 0.0f, -25.0f}, 1.4f, true},
-        {{ 35.0f, 0.0f, -28.0f}, 1.2f, false},
-        {{-14.0f, 0.0f,  28.0f}, 1.0f, false},
-        {{ 18.0f, 0.0f,  30.0f}, 1.2f, true}
-    };
-
-    // Frame counter for FPS and title updates
+    // Frame counter
     double lastTitleUpdate = 0.0;
     int frameCount = 0;
 
     // 6. Main Render Loop
     while (!glfwWindowShouldClose(window)) {
-        // Delta time
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         if (!isPaused) {
             simulationTime += deltaTime;
-            // Phase 1 preview: balloon slowly elevates and gently hovers above pad
-            balloonAltitude = 4.5f + std::sin(simulationTime * 0.9f) * 1.5f;
+            // Balloon gentle hovering motion above launchpad
+            balloonAltitude = 4.8f + std::sin(simulationTime * 0.9f) * 1.6f;
             balloonPosition = glm::vec3(0.0f, balloonAltitude, 0.0f);
+
+            // Windmill sails continuous rotation
+            windmillAngle += 45.0f * deltaTime;
+            if (windmillAngle > 360.0f) windmillAngle -= 360.0f;
         }
 
-        // Process inputs
         processInput(window);
-
-        // Update camera
         camera.update(deltaTime, balloonPosition);
 
         // Update Window Title with status
@@ -287,7 +354,7 @@ int main() {
         if (currentFrame - lastTitleUpdate >= 0.25) {
             float fps = frameCount / static_cast<float>(currentFrame - lastTitleUpdate);
             std::ostringstream ss;
-            ss << "Hot Air Balloon 3D | Mode: " << camera.getModeName()
+            ss << "Hot Air Balloon 3D | Phase 2 Rural Scene | " << camera.getModeName()
                << " | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
                << " | FPS: " << static_cast<int>(fps);
             glfwSetWindowTitle(window, ss.str().c_str());
@@ -296,13 +363,11 @@ int main() {
         }
 
         // Render Background (Atmospheric Sky Blue)
-        glClearColor(0.45f, 0.72f, 0.96f, 1.0f);
+        glClearColor(0.46f, 0.74f, 0.98f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Activate Shader
         sceneShader.use();
 
-        // Setup Projection and View Matrices
         float aspectRatio = static_cast<float>(SCR_WIDTH) / static_cast<float>(SCR_HEIGHT);
         int fbWidth, fbHeight;
         glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
@@ -314,11 +379,11 @@ int main() {
         sceneShader.setMat4("uView", view);
         sceneShader.setVec3("uViewPos", camera.position);
 
-        // Setup Lighting (Sun / Celestial Directional Light)
-        glm::vec3 sunDir = glm::normalize(glm::vec3(0.6f, -0.8f, -0.4f));
+        // Warm Sunlight & Atmospheric Sky Ambient
+        glm::vec3 sunDir = glm::normalize(glm::vec3(0.55f, -0.80f, -0.45f));
         sceneShader.setVec3("uDirLightDir", sunDir);
-        sceneShader.setVec3("uDirLightColor", glm::vec3(1.0f, 0.98f, 0.88f)); // Warm daylight
-        sceneShader.setVec3("uAmbientColor", glm::vec3(0.35f, 0.42f, 0.55f));
+        sceneShader.setVec3("uDirLightColor", glm::vec3(1.0f, 0.98f, 0.88f));
+        sceneShader.setVec3("uAmbientColor", glm::vec3(0.36f, 0.44f, 0.56f));
 
         // Burner Point Light
         glm::vec3 burnerPos = balloonPosition + glm::vec3(0.0f, 1.2f, 0.0f);
@@ -327,65 +392,255 @@ int main() {
         sceneShader.setVec3("uPointLightColor", glm::vec3(1.0f, 0.60f, 0.10f));
         sceneShader.setFloat("uPointLightIntensity", burnerActive ? flameFlicker : 0.0f);
 
-        // Material defaults
         sceneShader.setFloat("uSpecularStrength", 0.35f);
         sceneShader.setFloat("uShininess", 32.0f);
 
-        // ==========================================
-        // 1. Draw Rural Meadow Ground Plane
-        // ==========================================
-        glm::mat4 model = glm::mat4(1.0f);
-        sceneShader.setMat4("uModel", model);
-        meadowPlane.draw();
+        glm::mat4 model(1.0f);
 
         // ==========================================
-        // 2. Draw Wooden Launch Platform & Fences
+        // 1. Draw Rolling Rural Meadow & Dirt Road
         // ==========================================
-        // Base platform
+        model = glm::mat4(1.0f);
+        sceneShader.setMat4("uModel", model);
+        rollingTerrain.draw();
+        dirtRoad.draw();
+
+        // ==========================================
+        // 2. Draw Launch Platform, Fences & Mast
+        // ==========================================
+        // Wooden platform
         model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.2f, 0.0f));
         sceneShader.setMat4("uModel", model);
         launchPlatform.draw();
 
-        // Platform perimeter borders
-        model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.25f, 8.0f));
-        sceneShader.setMat4("uModel", model);
-        platformBorder.draw();
-        model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.25f, -8.0f));
-        sceneShader.setMat4("uModel", model);
-        platformBorder.draw();
-        model = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(8.0f, 0.25f, 0.0f)), glm::radians(90.0f), glm::vec3(0, 1, 0));
-        sceneShader.setMat4("uModel", model);
-        platformBorder.draw();
-        model = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(-8.0f, 0.25f, 0.0f)), glm::radians(90.0f), glm::vec3(0, 1, 0));
+        // Platform perimeter borders (leaving gap on south side for dirt road entry)
+        model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.25f, -8.0f)); // North
         sceneShader.setMat4("uModel", model);
         platformBorder.draw();
 
-        // Wooden fence posts at 4 corners
-        float postCoords[4][2] = {{-7.8f, -7.8f}, {7.8f, -7.8f}, {7.8f, 7.8f}, {-7.8f, 7.8f}};
-        for (int i = 0; i < 4; ++i) {
-            model = glm::translate(glm::mat4(1.0f), glm::vec3(postCoords[i][0], 0.9f, postCoords[i][1]));
+        model = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(8.0f, 0.25f, 0.0f)), glm::radians(90.0f), glm::vec3(0, 1, 0)); // East
+        sceneShader.setMat4("uModel", model);
+        platformBorder.draw();
+
+        model = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(-8.0f, 0.25f, 0.0f)), glm::radians(90.0f), glm::vec3(0, 1, 0)); // West
+        sceneShader.setMat4("uModel", model);
+        platformBorder.draw();
+
+        // Split south border for entrance gate
+        model = glm::translate(glm::mat4(1.0f), glm::vec3(-5.5f, 0.25f, 8.0f));
+        model = glm::scale(model, glm::vec3(0.35f, 1.0f, 1.0f));
+        sceneShader.setMat4("uModel", model);
+        platformBorder.draw();
+
+        model = glm::translate(glm::mat4(1.0f), glm::vec3(5.5f, 0.25f, 8.0f));
+        model = glm::scale(model, glm::vec3(0.35f, 1.0f, 1.0f));
+        sceneShader.setMat4("uModel", model);
+        platformBorder.draw();
+
+        // Platform perimeter fence posts and rails
+        float platformPosts[8][2] = {
+            {-7.8f, -7.8f}, {0.0f, -7.8f}, {7.8f, -7.8f},
+            {-7.8f,  0.0f},                {7.8f,  0.0f},
+            {-7.8f,  7.8f}, {-2.5f, 7.8f}, {2.5f, 7.8f} // gap between -2.5 and +2.5
+        };
+        for (int i = 0; i < 8; ++i) {
+            model = glm::translate(glm::mat4(1.0f), glm::vec3(platformPosts[i][0], 0.9f, platformPosts[i][1]));
             sceneShader.setMat4("uModel", model);
             fencePost.draw();
         }
 
-        // ==========================================
-        // 3. Draw Windsock at the Launchpad
-        // ==========================================
-        glm::vec3 mastPos(9.5f, 0.0f, -9.5f);
-        model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(0.0f, 4.0f, 0.0f));
+        // Platform fence rails
+        float platformRails[5][4] = {
+            {-3.9f, -7.8f, 0.0f, 0.0f}, {3.9f, -7.8f, 0.0f, 0.0f}, // North rails
+            {-7.8f, -3.9f, 90.0f, 0.0f}, {-7.8f, 3.9f, 90.0f, 0.0f}, // West rails
+            { 7.8f, -3.9f, 90.0f, 0.0f}                               // East rail
+        };
+        for (int i = 0; i < 5; ++i) {
+            model = glm::translate(glm::mat4(1.0f), glm::vec3(platformRails[i][0], 1.0f, platformRails[i][1]));
+            if (platformRails[i][2] != 0.0f) model = glm::rotate(model, glm::radians(platformRails[i][2]), glm::vec3(0, 1, 0));
+            sceneShader.setMat4("uModel", model);
+            fenceRail.draw();
+
+            // Lower rail
+            model = glm::translate(glm::mat4(1.0f), glm::vec3(platformRails[i][0], 0.5f, platformRails[i][1]));
+            if (platformRails[i][2] != 0.0f) model = glm::rotate(model, glm::radians(platformRails[i][2]), glm::vec3(0, 1, 0));
+            sceneShader.setMat4("uModel", model);
+            fenceRail.draw();
+        }
+
+        // Windsock mast on platform edge
+        glm::vec3 mastPos(9.8f, 0.0f, -9.8f);
+        model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(0.0f, 4.25f, 0.0f));
         sceneShader.setMat4("uModel", model);
         windsockPole.draw();
 
-        // Windsock cloth rotating with breeze
-        float sockYaw = 40.0f + 10.0f * std::sin(simulationTime * 1.2f);
-        model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(0.0f, 7.8f, 0.0f));
-        model = glm::rotate(model, glm::radians(sockYaw), glm::vec3(0, 1, 0));
-        model = glm::rotate(model, glm::radians(75.0f), glm::vec3(1, 0, 0));
+        // Floodlight head on the mast
+        model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(-0.35f, 8.2f, 0.35f));
+        model = glm::rotate(model, glm::radians(135.0f), glm::vec3(0, 1, 0));
+        model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1, 0, 0));
         sceneShader.setMat4("uModel", model);
-        windsockCloth.draw();
+        floodlightHead.draw();
+
+        // Dynamic fluttering striped windsock
+        float windHeading = 48.0f + 8.0f * std::sin(simulationTime * 1.4f);
+        float sockFlutter = 82.0f + 5.0f * std::sin(simulationTime * 4.5f);
+        model = glm::translate(glm::mat4(1.0f), mastPos + glm::vec3(0.0f, 8.3f, 0.0f));
+        model = glm::rotate(model, glm::radians(windHeading), glm::vec3(0, 1, 0));
+        model = glm::rotate(model, glm::radians(sockFlutter), glm::vec3(1, 0, 0));
+        sceneShader.setMat4("uModel", model);
+        windsockCone.draw();
 
         // ==========================================
-        // 4. Draw Scattered Trees in the Meadow
+        // 3. Draw Countryside Red Barn & Silo
+        // ==========================================
+        glm::vec3 barnPos(-32.0f, 0.0f, 25.0f);
+        float barnYaw = 25.0f;
+
+        glm::mat4 barnBase = glm::translate(glm::mat4(1.0f), barnPos);
+        barnBase = glm::rotate(barnBase, glm::radians(barnYaw), glm::vec3(0, 1, 0));
+
+        // Barn main walls
+        model = glm::translate(barnBase, glm::vec3(0.0f, 3.25f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        barnWalls.draw();
+
+        // Barn pitched gabled roof
+        model = glm::translate(barnBase, glm::vec3(0.0f, 6.5f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        barnRoof.draw();
+
+        // Barn double doors on the front (Z = +9.0)
+        model = glm::translate(barnBase, glm::vec3(0.0f, 2.25f, 9.05f));
+        sceneShader.setMat4("uModel", model);
+        barnDoors.draw();
+
+        // Barn door cross brace
+        model = glm::translate(barnBase, glm::vec3(0.0f, 2.25f, 9.15f));
+        sceneShader.setMat4("uModel", model);
+        barnDoorCross.draw();
+
+        // Silo tower beside the barn
+        glm::vec3 siloPos = barnPos + glm::vec3(9.5f, 0.0f, -2.0f);
+        model = glm::translate(glm::mat4(1.0f), siloPos + glm::vec3(0.0f, 5.0f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        siloTower.draw();
+
+        model = glm::translate(glm::mat4(1.0f), siloPos + glm::vec3(0.0f, 10.0f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        siloCap.draw();
+
+        // ==========================================
+        // 4. Draw Dutch Country Windmill
+        // ==========================================
+        glm::vec3 windmillPos(38.0f, 0.5f, -28.0f);
+        glm::mat4 windmillBaseTrans = glm::translate(glm::mat4(1.0f), windmillPos);
+
+        // Stone tower
+        model = glm::translate(windmillBaseTrans, glm::vec3(0.0f, 6.75f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        windmillBase.draw();
+
+        // Balcony gallery
+        model = glm::translate(windmillBaseTrans, glm::vec3(0.0f, 9.2f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        windmillBalcony.draw();
+
+        // Conical roof cap
+        model = glm::translate(windmillBaseTrans, glm::vec3(0.0f, 15.4f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        windmillRoof.draw();
+
+        // Rotor Hub (facing slightly south-west toward the launch area)
+        glm::vec3 hubPos = windmillPos + glm::vec3(-2.8f, 13.8f, 0.8f);
+        model = glm::translate(glm::mat4(1.0f), hubPos);
+        model = glm::rotate(model, glm::radians(70.0f), glm::vec3(0, 1, 0));
+        sceneShader.setMat4("uModel", model);
+        windmillHub.draw();
+
+        // 4 Rotating Sails
+        for (int i = 0; i < 4; ++i) {
+            float bladeAngle = windmillAngle + i * 90.0f;
+            glm::mat4 bladeModel = glm::translate(glm::mat4(1.0f), hubPos);
+            bladeModel = glm::rotate(bladeModel, glm::radians(70.0f), glm::vec3(0, 1, 0));
+            bladeModel = glm::rotate(bladeModel, glm::radians(bladeAngle), glm::vec3(0, 0, 1));
+            sceneShader.setMat4("uModel", bladeModel);
+            windmillBlade.draw();
+        }
+
+        // ==========================================
+        // 5. Draw Farmhouse Country Cottage
+        // ==========================================
+        glm::vec3 cottagePos(28.0f, 0.0f, 26.0f);
+        glm::mat4 cottageTrans = glm::translate(glm::mat4(1.0f), cottagePos);
+        cottageTrans = glm::rotate(cottageTrans, glm::radians(-35.0f), glm::vec3(0, 1, 0));
+
+        // Cottage walls
+        model = glm::translate(cottageTrans, glm::vec3(0.0f, 2.25f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        cottageWalls.draw();
+
+        // Terracotta gabled roof
+        model = glm::translate(cottageTrans, glm::vec3(0.0f, 4.5f, 0.0f));
+        sceneShader.setMat4("uModel", model);
+        cottageRoof.draw();
+
+        // Stone chimney
+        model = glm::translate(cottageTrans, glm::vec3(-3.2f, 4.0f, 2.2f));
+        sceneShader.setMat4("uModel", model);
+        cottageChimney.draw();
+
+        // Front door
+        model = glm::translate(cottageTrans, glm::vec3(0.0f, 1.4f, 3.8f));
+        sceneShader.setMat4("uModel", model);
+        cottageDoor.draw();
+
+        // ==========================================
+        // 6. Draw Hay Bales in the Harvested Pasture
+        // ==========================================
+        for (const auto& pos : hayBalePositions) {
+            model = glm::translate(glm::mat4(1.0f), pos);
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0, 0, 1)); // Lay horizontally
+            model = glm::rotate(model, glm::radians(pos.x * 3.0f), glm::vec3(0, 1, 0));
+            sceneShader.setMat4("uModel", model);
+            hayBale.draw();
+        }
+
+        // ==========================================
+        // 7. Draw Split-Rail Pasture Fences
+        // ==========================================
+        // Fence line separating barn pasture from road
+        for (int i = 0; i < 7; ++i) {
+            float fenceX = -38.0f + i * 4.0f;
+            float fenceZ = 12.0f;
+            model = glm::translate(glm::mat4(1.0f), glm::vec3(fenceX, 0.6f, fenceZ));
+            sceneShader.setMat4("uModel", model);
+            pastureFencePost.draw();
+
+            if (i < 6) {
+                // Top rail
+                model = glm::translate(glm::mat4(1.0f), glm::vec3(fenceX + 2.0f, 0.9f, fenceZ));
+                sceneShader.setMat4("uModel", model);
+                pastureFenceRail.draw();
+                // Bottom rail
+                model = glm::translate(glm::mat4(1.0f), glm::vec3(fenceX + 2.0f, 0.45f, fenceZ));
+                sceneShader.setMat4("uModel", model);
+                pastureFenceRail.draw();
+            }
+        }
+
+        // ==========================================
+        // 8. Draw Decorative Boulders
+        // ==========================================
+        for (size_t i = 0; i < boulderPositions.size(); ++i) {
+            float scale = 0.8f + (i % 3) * 0.25f;
+            model = glm::translate(glm::mat4(1.0f), boulderPositions[i]);
+            model = glm::scale(model, glm::vec3(scale * 1.3f, scale * 0.8f, scale));
+            sceneShader.setMat4("uModel", model);
+            boulder.draw();
+        }
+
+        // ==========================================
+        // 9. Draw Rural Trees (Conifers & Leafy)
         // ==========================================
         for (const auto& t : trees) {
             // Trunk
@@ -394,9 +649,8 @@ int main() {
             sceneShader.setMat4("uModel", model);
             treeTrunk.draw();
 
-            // Foliage
             if (t.isPine) {
-                // Multi-tiered pine foliage
+                // Multi-tiered evergreen foliage
                 for (int tier = 0; tier < 3; ++tier) {
                     float tierY = (3.5f + tier * 1.8f) * t.scale;
                     float tierScale = (1.0f - tier * 0.22f) * t.scale;
@@ -415,12 +669,11 @@ int main() {
         }
 
         // ==========================================
-        // 5. Draw Hot Air Balloon (Hierarchical Rig)
+        // 10. Draw Hot Air Balloon (Hierarchical Rig)
         // ==========================================
-        // Balloon root translation
         glm::mat4 balloonRoot = glm::translate(glm::mat4(1.0f), balloonPosition);
 
-        // Gentle basket sway physics (pendulum oscillation)
+        // Gentle basket sway physics
         float swayAngle = 3.5f * std::sin(simulationTime * 2.2f);
         glm::mat4 basketTransform = glm::rotate(balloonRoot, glm::radians(swayAngle), glm::vec3(0, 0, 1));
 
@@ -434,7 +687,6 @@ int main() {
         sceneShader.setMat4("uModel", burnerModel);
         burnerRing.draw();
 
-        // Flickering flame inside throat
         float flameScale = 0.85f + 0.35f * std::sin(simulationTime * 24.0f);
         glm::mat4 flameModel = glm::translate(balloonRoot, glm::vec3(0.0f, 1.5f, 0.0f));
         flameModel = glm::scale(flameModel, glm::vec3(flameScale, flameScale * 1.25f, flameScale));
@@ -459,13 +711,12 @@ int main() {
         }
 
         // ==========================================
-        // 6. Swap Buffers & Poll Events
+        // 11. Swap Buffers & Poll Events
         // ==========================================
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // Terminate GLFW
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
