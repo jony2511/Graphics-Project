@@ -548,3 +548,478 @@ Mesh ModelGenerator::createHayBale(float radius, float length) {
     Mesh cylinder = createCylinder(radius, radius, length, 14, glm::vec3(0.85f, 0.74f, 0.32f));
     return cylinder;
 }
+
+// ========================================================
+// Phase 3: High-Fidelity Eye-Catching Hot Air Balloon Rig
+// ========================================================
+
+Mesh ModelGenerator::createRainbowBalloonEnvelope(float radius, float height, int rings, int numGores, int colorScheme) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    // 7-color Rainbow spectrum (matching user's reference image)
+    const glm::vec3 rainbowColors[7] = {
+        glm::vec3(0.94f, 0.20f, 0.18f), // 1. Crimson Red
+        glm::vec3(0.98f, 0.52f, 0.12f), // 2. Vivid Orange
+        glm::vec3(0.98f, 0.86f, 0.08f), // 3. Sunny Yellow
+        glm::vec3(0.16f, 0.78f, 0.32f), // 4. Fresh Green
+        glm::vec3(0.12f, 0.66f, 0.94f), // 5. Sky Cyan
+        glm::vec3(0.14f, 0.36f, 0.88f), // 6. Royal Blue
+        glm::vec3(0.52f, 0.18f, 0.70f)  // 7. Violet Purple
+    };
+
+    // Sunset Fire (Background Balloon 1)
+    const glm::vec3 sunsetColors[3] = {
+        glm::vec3(0.95f, 0.28f, 0.22f), // Coral Red
+        glm::vec3(0.98f, 0.78f, 0.15f), // Goldenrod
+        glm::vec3(0.96f, 0.96f, 0.96f)  // Pure White
+    };
+
+    // Ocean Teal (Background Balloon 2)
+    const glm::vec3 oceanColors[3] = {
+        glm::vec3(0.12f, 0.65f, 0.72f), // Teal Cyan
+        glm::vec3(0.10f, 0.25f, 0.68f), // Deep Navy
+        glm::vec3(0.96f, 0.96f, 0.96f)  // Clean White
+    };
+
+    const int sectorsPerGore = 4;
+    const int totalSectors = numGores * sectorsPerGore;
+
+    for (int r = 0; r < rings; ++r) {
+        float v = (float)r / (float)(rings - 1); // 0 (top pole) to 1 (bottom throat)
+
+        float rBase;
+        float y;
+
+        if (v < 0.46f) {
+            // Upper bulbous dome
+            float localV = v / 0.46f;
+            float phi = localV * 0.5f * (float)M_PI;
+            y = (1.0f - std::sin(phi)) * (height * 0.46f);
+            rBase = std::cos(phi) * radius;
+        } else {
+            // Lower tapering cone towards the throat
+            float localV = (v - 0.46f) / 0.54f;
+            y = -localV * (height * 0.54f);
+            rBase = radius * (1.0f - 0.70f * std::sqrt(localV));
+        }
+
+        for (int s = 0; s < totalSectors; ++s) {
+            int goreIndex = s / sectorsPerGore;
+            int goreSector = s % sectorsPerGore;
+            float goreFrac = (float)goreSector / (float)sectorsPerGore;
+
+            // 3D Puffy gore bulge between vertical load tapes
+            float bulge = 1.0f + 0.042f * std::sin(goreFrac * (float)M_PI);
+            float currentRadius = rBase * bulge;
+
+            float u = (float)s / (float)totalSectors;
+            float theta = u * 2.0f * (float)M_PI;
+
+            float x = std::cos(theta) * currentRadius;
+            float z = std::sin(theta) * currentRadius;
+
+            glm::vec3 pos(x, y, z);
+            glm::vec3 norm = glm::normalize(glm::vec3(x, y * 0.45f, z));
+
+            glm::vec3 vertColor;
+            if (colorScheme == 0) {
+                vertColor = rainbowColors[goreIndex % 7];
+            } else if (colorScheme == 1) {
+                vertColor = sunsetColors[goreIndex % 3];
+            } else {
+                vertColor = oceanColors[goreIndex % 3];
+            }
+
+            // Subtle dark groove between gores for realistic load-tape seam lines
+            if (goreFrac < 0.08f || goreFrac > 0.92f) {
+                vertColor *= 0.82f;
+            }
+
+            // Top crown cap
+            if (v < 0.035f) {
+                vertColor = glm::vec3(0.24f, 0.24f, 0.26f);
+            }
+
+            vertices.push_back({pos, norm, vertColor, {u, v}});
+        }
+    }
+
+    for (int r = 0; r < rings - 1; ++r) {
+        for (int s = 0; s < totalSectors; ++s) {
+            int nextS = (s + 1) % totalSectors;
+            unsigned int cur = r * totalSectors + s;
+            unsigned int right = r * totalSectors + nextS;
+            unsigned int next = (r + 1) * totalSectors + s;
+            unsigned int nextRight = (r + 1) * totalSectors + nextS;
+
+            indices.push_back(cur);
+            indices.push_back(next);
+            indices.push_back(nextRight);
+
+            indices.push_back(cur);
+            indices.push_back(nextRight);
+            indices.push_back(right);
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createBalloonEquatorBelt(float radius, float thickness) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const int sectors = 64;
+    const float beltHeight = 0.32f;
+    const float beltThickness = thickness;
+    const glm::vec3 white(0.98f, 0.98f, 0.98f);
+    const glm::vec3 darkRim(0.25f, 0.25f, 0.28f);
+
+    float halfH = beltHeight * 0.5f;
+
+    // Outer cylindrical belt ring
+    for (int i = 0; i <= sectors; ++i) {
+        float angle = 2.0f * (float)M_PI * (float)i / (float)sectors;
+        float c = std::cos(angle);
+        float s = std::sin(angle);
+
+        glm::vec3 norm(c, 0.0f, s);
+        float rOut = radius + beltThickness;
+
+        vertices.push_back({{c * rOut, -halfH, s * rOut}, norm, white, {(float)i / sectors, 0.0f}});
+        vertices.push_back({{c * rOut,  halfH, s * rOut}, norm, white, {(float)i / sectors, 1.0f}});
+    }
+
+    for (int i = 0; i < sectors; ++i) {
+        unsigned int b1 = i * 2;
+        unsigned int t1 = b1 + 1;
+        unsigned int b2 = (i + 1) * 2;
+        unsigned int t2 = b2 + 1;
+
+        indices.push_back(b1); indices.push_back(b2); indices.push_back(t1);
+        indices.push_back(b2); indices.push_back(t2); indices.push_back(t1);
+    }
+
+    // Scalloped swags (draped decorative curves below the belt)
+    const int numGores = 14;
+    for (int g = 0; g < numGores; ++g) {
+        float startAngle = 2.0f * (float)M_PI * (float)g / (float)numGores;
+        float endAngle = 2.0f * (float)M_PI * (float)(g + 1) / (float)numGores;
+
+        const int drapeSteps = 6;
+        for (int step = 0; step < drapeSteps; ++step) {
+            float t1 = (float)step / (float)drapeSteps;
+            float t2 = (float)(step + 1) / (float)drapeSteps;
+
+            float a1 = glm::mix(startAngle, endAngle, t1);
+            float a2 = glm::mix(startAngle, endAngle, t2);
+
+            // Catenary sag curve
+            float sag1 = std::sin(t1 * (float)M_PI) * 0.38f;
+            float sag2 = std::sin(t2 * (float)M_PI) * 0.38f;
+
+            float rDrape = radius + 0.02f;
+            glm::vec3 p1(std::cos(a1) * rDrape, -halfH - sag1, std::sin(a1) * rDrape);
+            glm::vec3 p2(std::cos(a2) * rDrape, -halfH - sag2, std::sin(a2) * rDrape);
+
+            unsigned int b = (unsigned int)vertices.size();
+            glm::vec3 n(std::cos(a1), 0.0f, std::sin(a1));
+            float thick = 0.04f;
+
+            vertices.push_back({p1, n, darkRim, {0, 0}});
+            vertices.push_back({p2, n, darkRim, {1, 0}});
+            vertices.push_back({p2 - glm::vec3(0, thick, 0), n, darkRim, {1, 1}});
+            vertices.push_back({p1 - glm::vec3(0, thick, 0), n, darkRim, {0, 1}});
+
+            indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+            indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createBalloonWhiteSkirt(float topRadius, float botRadius, float height, int sectors) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const glm::vec3 white(0.96f, 0.96f, 0.98f);
+    const glm::vec3 darkRim(0.20f, 0.20f, 0.22f);
+
+    float halfH = height * 0.5f;
+
+    for (int i = 0; i <= sectors; ++i) {
+        float angle = 2.0f * (float)M_PI * (float)i / (float)sectors;
+        float c = std::cos(angle);
+        float s = std::sin(angle);
+
+        glm::vec3 norm(c, 0.1f, s);
+        norm = glm::normalize(norm);
+
+        // Bottom vertex with dark trim
+        vertices.push_back({{c * botRadius, -halfH, s * botRadius}, norm, darkRim, {(float)i / sectors, 0.0f}});
+        // Mid vertex
+        vertices.push_back({{c * (botRadius * 0.8f + topRadius * 0.2f), -halfH + height * 0.15f, s * (botRadius * 0.8f + topRadius * 0.2f)}, norm, white, {(float)i / sectors, 0.15f}});
+        // Top vertex
+        vertices.push_back({{c * topRadius, halfH, s * topRadius}, norm, white, {(float)i / sectors, 1.0f}});
+    }
+
+    for (int i = 0; i < sectors; ++i) {
+        unsigned int b1 = i * 3;
+        unsigned int m1 = b1 + 1;
+        unsigned int t1 = b1 + 2;
+
+        unsigned int b2 = (i + 1) * 3;
+        unsigned int m2 = b2 + 1;
+        unsigned int t2 = b2 + 2;
+
+        // Bottom dark trim quad
+        indices.push_back(b1); indices.push_back(b2); indices.push_back(m1);
+        indices.push_back(m1); indices.push_back(b2); indices.push_back(m2);
+
+        // Main white collar quad
+        indices.push_back(m1); indices.push_back(m2); indices.push_back(t1);
+        indices.push_back(t1); indices.push_back(m2); indices.push_back(t2);
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createWovenBasket(float width, float height, float depth) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    float w = width * 0.5f;
+    float h = height * 0.5f;
+    float d = depth * 0.5f;
+
+    glm::vec3 wickerLight(0.72f, 0.48f, 0.28f);
+    glm::vec3 wickerDark(0.58f, 0.38f, 0.20f);
+    glm::vec3 woodPost(0.42f, 0.25f, 0.14f);
+    glm::vec3 rimRail(0.36f, 0.20f, 0.10f);
+
+    const int numBands = 5;
+    float bandH = height / (float)numBands;
+
+    auto addQuad = [&](glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 norm, glm::vec3 col) {
+        unsigned int base = (unsigned int)vertices.size();
+        vertices.push_back({p0, norm, col, {0, 0}});
+        vertices.push_back({p1, norm, col, {1, 0}});
+        vertices.push_back({p2, norm, col, {1, 1}});
+        vertices.push_back({p3, norm, col, {0, 1}});
+        indices.push_back(base); indices.push_back(base + 1); indices.push_back(base + 2);
+        indices.push_back(base); indices.push_back(base + 2); indices.push_back(base + 3);
+    };
+
+    // 1. Horizontal woven bands for 4 walls
+    for (int b = 0; b < numBands; ++b) {
+        float y0 = -h + b * bandH;
+        float y1 = y0 + bandH;
+        glm::vec3 col = (b % 2 == 0) ? wickerLight : wickerDark;
+
+        // Front (Z = +d)
+        addQuad({-w, y0, d}, { w, y0, d}, { w, y1, d}, {-w, y1, d}, {0, 0, 1}, col);
+        // Back (Z = -d)
+        addQuad({ w, y0, -d}, {-w, y0, -d}, {-w, y1, -d}, { w, y1, -d}, {0, 0, -1}, col);
+        // Right (X = +w)
+        addQuad({ w, y0, d}, { w, y0, -d}, { w, y1, -d}, { w, y1, d}, {1, 0, 0}, col);
+        // Left (X = -w)
+        addQuad({-w, y0, -d}, {-w, y0, d}, {-w, y1, d}, {-w, y1, -d}, {-1, 0, 0}, col);
+    }
+
+    // 2. Bottom Floor
+    addQuad({-w, -h, -d}, { w, -h, -d}, { w, -h, d}, {-w, -h, d}, {0, 1, 0}, wickerDark * 0.8f);
+
+    // 3. Top Rim Handrail
+    float rimThick = 0.14f;
+    float rimW = w + 0.08f;
+    float rimD = d + 0.08f;
+
+    // Top surface of handrail
+    addQuad({-rimW, h, -rimD}, { rimW, h, -rimD}, { rimW, h + rimThick, -rimD}, {-rimW, h + rimThick, -rimD}, {0, 0, -1}, rimRail);
+    addQuad({-rimW, h,  rimD}, { rimW, h,  rimD}, { rimW, h + rimThick,  rimD}, {-rimW, h + rimThick,  rimD}, {0, 0, 1}, rimRail);
+    addQuad({ rimW, h, -rimD}, { rimW, h,  rimD}, { rimW, h + rimThick,  rimD}, { rimW, h + rimThick, -rimD}, {1, 0, 0}, rimRail);
+    addQuad({-rimW, h,  rimD}, {-rimW, h, -rimD}, {-rimW, h + rimThick, -rimD}, {-rimW, h + rimThick,  rimD}, {-1, 0, 0}, rimRail);
+
+    // 4. Vertical Corner Posts
+    float postR = 0.08f;
+    float corners[4][2] = {{-w, -d}, {w, -d}, {w, d}, {-w, d}};
+    for (int i = 0; i < 4; ++i) {
+        float cx = corners[i][0];
+        float cz = corners[i][1];
+        addQuad({cx - postR, -h, cz - postR}, {cx + postR, -h, cz - postR}, {cx + postR, h, cz - postR}, {cx - postR, h, cz - postR}, {0, 0, -1}, woodPost);
+        addQuad({cx - postR, -h, cz + postR}, {cx + postR, -h, cz + postR}, {cx + postR, h, cz + postR}, {cx - postR, h, cz + postR}, {0, 0, 1}, woodPost);
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createCloudCluster() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    struct CloudSphere {
+        glm::vec3 offset;
+        float radius;
+        glm::vec3 scale;
+    };
+
+    std::vector<CloudSphere> puffs = {
+        {{ 0.0f,  0.0f,  0.0f}, 3.6f, {1.0f, 0.62f, 1.0f}},
+        {{-3.0f, -0.2f,  0.4f}, 2.6f, {1.0f, 0.58f, 0.95f}},
+        {{ 2.8f, -0.3f, -0.3f}, 2.5f, {1.0f, 0.60f, 0.95f}},
+        {{ 0.5f, -0.4f,  2.0f}, 2.2f, {1.1f, 0.55f, 0.9f}},
+        {{-0.8f, -0.3f, -1.8f}, 2.4f, {1.0f, 0.56f, 1.0f}},
+        {{ 1.6f,  0.4f,  0.2f}, 2.0f, {0.9f, 0.65f, 0.9f}}
+    };
+
+    glm::vec3 cloudWhite(0.98f, 0.98f, 1.0f);
+    const int rings = 12;
+    const int sectors = 16;
+
+    for (const auto& p : puffs) {
+        unsigned int baseIndex = (unsigned int)vertices.size();
+
+        for (int r = 0; r < rings; ++r) {
+            float phi = (float)M_PI * (float)r / (float)(rings - 1);
+            float y = std::cos(phi);
+            float sinPhi = std::sin(phi);
+
+            for (int s = 0; s < sectors; ++s) {
+                float theta = 2.0f * (float)M_PI * (float)s / (float)sectors;
+                float x = std::cos(theta) * sinPhi;
+                float z = std::sin(theta) * sinPhi;
+
+                glm::vec3 norm = glm::normalize(glm::vec3(x, y * 1.5f, z)); // Upward-biased normals
+                glm::vec3 localPos(x * p.radius * p.scale.x, y * p.radius * p.scale.y, z * p.radius * p.scale.z);
+                glm::vec3 worldPos = p.offset + localPos;
+
+                vertices.push_back({worldPos, norm, cloudWhite, {(float)s / sectors, (float)r / rings}});
+            }
+        }
+
+        for (int r = 0; r < rings - 1; ++r) {
+            for (int s = 0; s < sectors; ++s) {
+                int nextS = (s + 1) % sectors;
+                unsigned int cur = baseIndex + r * sectors + s;
+                unsigned int right = baseIndex + r * sectors + nextS;
+                unsigned int next = baseIndex + (r + 1) * sectors + s;
+                unsigned int nextRight = baseIndex + (r + 1) * sectors + nextS;
+
+                indices.push_back(cur);
+                indices.push_back(next);
+                indices.push_back(nextRight);
+
+                indices.push_back(cur);
+                indices.push_back(nextRight);
+                indices.push_back(right);
+            }
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createBirdBody() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    glm::vec3 birdBlack(0.12f, 0.12f, 0.14f);
+
+    // Aerodynamic tapered bird fuselage
+    // Head at +Z, Tail at -Z
+    glm::vec3 beak(0.0f, 0.0f, 0.8f);
+    glm::vec3 headTop(0.0f, 0.15f, 0.4f);
+    glm::vec3 headBot(0.0f, -0.12f, 0.4f);
+    glm::vec3 headR(0.14f, 0.0f, 0.4f);
+    glm::vec3 headL(-0.14f, 0.0f, 0.4f);
+
+    glm::vec3 tailTip(0.0f, 0.05f, -0.9f);
+    glm::vec3 tailR(0.18f, 0.02f, -0.85f);
+    glm::vec3 tailL(-0.18f, 0.02f, -0.85f);
+
+    auto addTri = [&](glm::vec3 p0, glm::vec3 p1, glm::vec3 p2) {
+        unsigned int b = (unsigned int)vertices.size();
+        glm::vec3 n = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+        vertices.push_back({p0, n, birdBlack, {0, 0}});
+        vertices.push_back({p1, n, birdBlack, {1, 0}});
+        vertices.push_back({p2, n, birdBlack, {0.5f, 1}});
+        indices.push_back(b); indices.push_back(b + 1); indices.push_back(b + 2);
+    };
+
+    // Head cone
+    addTri(beak, headR, headTop);
+    addTri(beak, headTop, headL);
+    addTri(beak, headL, headBot);
+    addTri(beak, headBot, headR);
+
+    // Body to tail
+    addTri(headTop, headR, tailR);
+    addTri(headTop, tailR, tailTip);
+    addTri(headTop, tailTip, tailL);
+    addTri(headTop, tailL, headL);
+
+    addTri(headBot, tailR, headR);
+    addTri(headBot, tailTip, tailR);
+    addTri(headBot, tailL, tailTip);
+    addTri(headBot, headL, tailL);
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createBirdWing(bool isLeft) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    glm::vec3 birdBlack(0.12f, 0.12f, 0.14f);
+    float sign = isLeft ? -1.0f : 1.0f;
+
+    // Wing root at shoulder, elbow joint, swept tip
+    glm::vec3 root(0.0f, 0.05f, 0.2f);
+    glm::vec3 rootRear(0.0f, 0.02f, -0.2f);
+    glm::vec3 elbow(sign * 0.8f, 0.18f, 0.05f);
+    glm::vec3 elbowRear(sign * 0.75f, 0.12f, -0.25f);
+    glm::vec3 tip(sign * 1.6f, 0.25f, -0.35f);
+
+    auto addQuadTwoSided = [&](glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3) {
+        unsigned int b = (unsigned int)vertices.size();
+        glm::vec3 n(0, 1, 0);
+        vertices.push_back({p0, n, birdBlack, {0, 0}});
+        vertices.push_back({p1, n, birdBlack, {1, 0}});
+        vertices.push_back({p2, n, birdBlack, {1, 1}});
+        vertices.push_back({p3, n, birdBlack, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, -1, 0);
+        vertices.push_back({p0, n, birdBlack, {0, 0}});
+        vertices.push_back({p3, n, birdBlack, {0, 1}});
+        vertices.push_back({p2, n, birdBlack, {1, 1}});
+        vertices.push_back({p1, n, birdBlack, {1, 0}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+    };
+
+    // Inner wing section
+    addQuadTwoSided(root, elbow, elbowRear, rootRear);
+
+    // Outer wing section
+    unsigned int b = (unsigned int)vertices.size();
+    glm::vec3 n(0, 1, 0);
+    vertices.push_back({elbow, n, birdBlack, {0, 0}});
+    vertices.push_back({tip, n, birdBlack, {1, 0}});
+    vertices.push_back({elbowRear, n, birdBlack, {0.5f, 1}});
+    indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+
+    b = (unsigned int)vertices.size();
+    n = glm::vec3(0, -1, 0);
+    vertices.push_back({elbow, n, birdBlack, {0, 0}});
+    vertices.push_back({elbowRear, n, birdBlack, {0.5f, 1}});
+    vertices.push_back({tip, n, birdBlack, {1, 0}});
+    indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+
+    return Mesh(vertices, indices);
+}
+

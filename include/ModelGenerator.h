@@ -14,13 +14,22 @@ public:
     static Mesh createPlane(float width, float depth, int subdivisions, const glm::vec3& color);
     static Mesh createBalloonEnvelope(float radius, float height, int rings, int sectors);
 
-    // Phase 2: Rural Landscape & Architecture Generators
+    // Phase 2: Rural Landscape & Architecture
     static Mesh createRollingTerrain(float width, float depth, int subdivisions);
     static Mesh createPrism(float width, float height, float depth, const glm::vec3& color);
     static Mesh createStripedWindsock(float baseRadius, float tipRadius, float length, int sectors, int numStripes);
     static Mesh createWindmillBlade(float length, float width, const glm::vec3& woodColor, const glm::vec3& sailColor);
     static Mesh createCurvedDirtRoad();
     static Mesh createHayBale(float radius, float length);
+
+    // Phase 3: High-Fidelity Eye-Catching Hot Air Balloon Rig & Atmosphere
+    static Mesh createRainbowBalloonEnvelope(float radius, float height, int rings, int numGores, int colorScheme = 0);
+    static Mesh createBalloonEquatorBelt(float radius, float thickness);
+    static Mesh createBalloonWhiteSkirt(float topRadius, float botRadius, float height, int sectors);
+    static Mesh createWovenBasket(float width, float height, float depth);
+    static Mesh createCloudCluster();
+    static Mesh createBirdBody();
+    static Mesh createBirdWing(bool isLeft);
 };
 
 #endif // MODEL_GENERATOR_H
