@@ -22,6 +22,14 @@ public:
     static Mesh createCurvedDirtRoad();
     static Mesh createHayBale(float radius, float length);
 
+    // Authentic Rural Landscape & Architecture (Matching Reference Photo)
+    static Mesh createVillageHut();
+    static Mesh createBanyanShadeTree();
+    static Mesh createPalmTree(float height = 11.0f, float tiltAngleDeg = 4.5f);
+    static Mesh createReedCluster(int bladeCount = 14, float height = 1.8f);
+    static Mesh createWetlandWater(float width, float depth);
+    static Mesh createSkyBackdrop(float radius, float height);
+
     // Phase 3: High-Fidelity Eye-Catching Hot Air Balloon Rig & Atmosphere
     static Mesh createRainbowBalloonEnvelope(float radius, float height, int rings, int numGores, int colorScheme = 0);
     static Mesh createBalloonEquatorBelt(float radius, float thickness);

@@ -77,40 +77,40 @@ struct LightingProfile {
 };
 
 LightingProfile profiles[4] = {
-    // 0: DAY
+    // 0: DRAMATIC OVERCAST SUNSET (Default - matching user's reference photograph!)
     {
-        glm::normalize(glm::vec3(0.55f, -0.85f, -0.40f)),
-        glm::vec3(1.0f, 0.98f, 0.92f),
-        glm::vec3(0.40f, 0.46f, 0.58f),
-        glm::vec3(0.25f, 0.48f, 0.20f),
-        glm::vec3(0.50f, 0.76f, 0.95f),
+        glm::normalize(glm::vec3(0.65f, -0.18f, -0.72f)), // Low golden sunset sun breaking under cloud base
+        glm::vec3(1.0f, 0.74f, 0.28f),                    // Radiant golden-amber sunlight
+        glm::vec3(0.24f, 0.28f, 0.35f),                    // Moody overcast slate-navy sky fill
+        glm::vec3(0.18f, 0.32f, 0.12f),                    // Lush wetland meadow bounce
+        glm::vec3(0.10f, 0.16f, 0.24f),                    // Deep stormy cloud horizon color
         0.0f
     },
-    // 1: SUNSET
+    // 1: GOLDEN TWILIGHT SUNSET
     {
-        glm::normalize(glm::vec3(0.85f, -0.26f, -0.45f)),
-        glm::vec3(1.0f, 0.52f, 0.16f),
-        glm::vec3(0.42f, 0.26f, 0.36f),
-        glm::vec3(0.32f, 0.22f, 0.12f),
-        glm::vec3(0.86f, 0.44f, 0.32f),
+        glm::normalize(glm::vec3(0.85f, -0.12f, -0.50f)),
+        glm::vec3(1.0f, 0.50f, 0.14f),
+        glm::vec3(0.28f, 0.22f, 0.32f),
+        glm::vec3(0.20f, 0.26f, 0.10f),
+        glm::vec3(0.12f, 0.14f, 0.22f),
         1.5f
     },
-    // 2: NIGHT
+    // 2: MOONLIT MONSOON NIGHT
     {
         glm::normalize(glm::vec3(0.38f, -0.88f, 0.32f)),
-        glm::vec3(0.32f, 0.42f, 0.65f),
-        glm::vec3(0.09f, 0.12f, 0.20f),
-        glm::vec3(0.06f, 0.10f, 0.08f),
-        glm::vec3(0.06f, 0.08f, 0.16f),
+        glm::vec3(0.28f, 0.38f, 0.55f),
+        glm::vec3(0.08f, 0.10f, 0.16f),
+        glm::vec3(0.05f, 0.08f, 0.06f),
+        glm::vec3(0.04f, 0.06f, 0.12f),
         3.8f
     },
-    // 3: DAWN
+    // 3: MISTY RURAL DAWN
     {
-        glm::normalize(glm::vec3(-0.75f, -0.35f, -0.55f)),
-        glm::vec3(0.98f, 0.72f, 0.50f),
-        glm::vec3(0.38f, 0.36f, 0.52f),
-        glm::vec3(0.20f, 0.35f, 0.18f),
-        glm::vec3(0.62f, 0.56f, 0.78f),
+        glm::normalize(glm::vec3(-0.75f, -0.22f, -0.55f)),
+        glm::vec3(0.98f, 0.68f, 0.42f),
+        glm::vec3(0.26f, 0.28f, 0.38f),
+        glm::vec3(0.14f, 0.28f, 0.12f),
+        glm::vec3(0.14f, 0.18f, 0.28f),
         0.5f
     }
 };
@@ -179,11 +179,11 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 
 const char* getLightingModeName(LightingMode m) {
     switch (m) {
-        case LIGHT_DAY: return "DAY";
-        case LIGHT_SUNSET: return "SUNSET";
-        case LIGHT_NIGHT: return "NIGHT";
-        case LIGHT_DAWN: return "DAWN";
-        default: return "DAY";
+        case LIGHT_DAY: return "OVERCAST SUNSET";
+        case LIGHT_SUNSET: return "GOLDEN TWILIGHT";
+        case LIGHT_NIGHT: return "MOONLIT NIGHT";
+        case LIGHT_DAWN: return "MISTY DAWN";
+        default: return "OVERCAST SUNSET";
     }
 }
 
@@ -372,33 +372,16 @@ int main() {
     Mesh floodlightHead = ModelGenerator::createCone(0.42f, 0.65f, 14, glm::vec3(0.20f, 0.20f, 0.22f));
     Mesh floodlightLens = ModelGenerator::createCylinder(0.38f, 0.38f, 0.05f, 14, glm::vec3(1.0f, 0.98f, 0.85f));
 
-    // C. Rural Architecture (Barn, Windmill, Cottage)
-    Mesh barnWalls = ModelGenerator::createCube(14.0f, 6.5f, 18.0f, glm::vec3(0.68f, 0.18f, 0.14f));
-    Mesh barnRoof = ModelGenerator::createPrism(15.2f, 4.2f, 18.8f, glm::vec3(0.25f, 0.25f, 0.28f));
-    Mesh barnDoors = ModelGenerator::createCube(4.0f, 4.5f, 0.2f, glm::vec3(0.92f, 0.90f, 0.85f));
-    Mesh barnDoorCross = ModelGenerator::createCube(3.6f, 0.25f, 0.25f, glm::vec3(0.68f, 0.18f, 0.14f));
-    Mesh siloTower = ModelGenerator::createCylinder(2.4f, 2.4f, 10.0f, 18, glm::vec3(0.65f, 0.65f, 0.68f));
-    Mesh siloCap = ModelGenerator::createSphere(2.45f, 12, 18, glm::vec3(0.45f, 0.45f, 0.48f));
-
-    Mesh windmillBase = ModelGenerator::createCylinder(4.6f, 3.2f, 13.5f, 16, glm::vec3(0.78f, 0.74f, 0.68f));
-    Mesh windmillRoof = ModelGenerator::createCone(3.6f, 3.8f, 16, glm::vec3(0.32f, 0.22f, 0.16f));
-    Mesh windmillBalcony = ModelGenerator::createCylinder(4.2f, 4.2f, 0.35f, 16, glm::vec3(0.42f, 0.28f, 0.18f));
-    Mesh windmillHub = ModelGenerator::createSphere(0.75f, 12, 12, glm::vec3(0.28f, 0.24f, 0.20f));
-    Mesh windmillBlade = ModelGenerator::createWindmillBlade(7.8f, 1.35f, glm::vec3(0.45f, 0.30f, 0.18f), glm::vec3(0.92f, 0.90f, 0.82f));
-
-    Mesh cottageWalls = ModelGenerator::createCube(9.0f, 4.5f, 7.5f, glm::vec3(0.85f, 0.80f, 0.70f));
-    Mesh cottageRoof = ModelGenerator::createPrism(10.0f, 3.0f, 8.2f, glm::vec3(0.75f, 0.32f, 0.18f));
-    Mesh cottageChimney = ModelGenerator::createCube(1.2f, 5.2f, 1.2f, glm::vec3(0.45f, 0.42f, 0.40f));
-    Mesh cottageDoor = ModelGenerator::createCube(1.4f, 2.8f, 0.15f, glm::vec3(0.42f, 0.25f, 0.14f));
-
-    Mesh hayBale = ModelGenerator::createHayBale(1.1f, 2.2f);
-    Mesh pastureFencePost = ModelGenerator::createCube(0.2f, 1.2f, 0.2f, glm::vec3(0.45f, 0.30f, 0.18f));
-    Mesh pastureFenceRail = ModelGenerator::createCube(4.2f, 0.10f, 0.10f, glm::vec3(0.50f, 0.34f, 0.20f));
-    Mesh boulder = ModelGenerator::createSphere(1.2f, 10, 10, glm::vec3(0.52f, 0.52f, 0.50f));
-
-    Mesh treeTrunk = ModelGenerator::createCylinder(0.45f, 0.35f, 4.0f, 12, glm::vec3(0.42f, 0.25f, 0.14f));
-    Mesh treeFoliagePine = ModelGenerator::createCone(2.4f, 4.5f, 12, glm::vec3(0.14f, 0.40f, 0.16f));
-    Mesh treeFoliageLeafy = ModelGenerator::createSphere(2.2f, 16, 16, glm::vec3(0.22f, 0.52f, 0.18f));
+    // C. Traditional Rural Landscape Elements (Matching user's reference photo)
+    Mesh villageHut = ModelGenerator::createVillageHut();
+    Mesh banyanTree = ModelGenerator::createBanyanShadeTree();
+    Mesh palmTreeStd = ModelGenerator::createPalmTree(10.5f, 3.5f);
+    Mesh palmTreeTall = ModelGenerator::createPalmTree(13.5f, -4.5f);
+    Mesh reedClusterDense = ModelGenerator::createReedCluster(18, 1.9f);
+    Mesh reedClusterLight = ModelGenerator::createReedCluster(10, 1.4f);
+    Mesh wetlandWater = ModelGenerator::createWetlandWater(140.0f, 75.0f);
+    Mesh skyBackdrop = ModelGenerator::createSkyBackdrop(220.0f, 85.0f);
+    Mesh rusticBoulder = ModelGenerator::createSphere(1.1f, 10, 10, glm::vec3(0.38f, 0.36f, 0.32f));
 
     // D. Main Hot Air Balloon (Vibrant Rainbow Envelope + Basket)
     Mesh rainbowEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 48, 14, 0);
@@ -441,39 +424,79 @@ int main() {
         {{ 4.4f, -0.7f,  -4.0f}, 1.4f}
     };
 
-    // Trees layout
-    struct TreeInstance {
+    // Horizon Coconut Palms (Dense silhouette along the sunset break line matching reference photo)
+    struct HorizonPalm {
         glm::vec3 pos;
         float scale;
-        bool isPine;
+        float rotY;
+        bool isTall;
     };
-    std::vector<TreeInstance> trees = {
-        {{-42.0f, 0.0f,  18.0f}, 1.3f, false},
-        {{-45.0f, 0.0f,  30.0f}, 1.5f, false},
-        {{-22.0f, 0.0f,  32.0f}, 1.1f, false},
-        {{-28.0f, 0.0f,  12.0f}, 1.2f, true},
-        {{ 10.0f, 0.0f,  20.0f}, 1.0f, false},
-        {{ 14.0f, 0.0f,  38.0f}, 1.2f, false},
-        {{-04.0f, 0.0f,  45.0f}, 1.1f, true},
-        {{ 32.0f, 0.0f,  65.0f}, 1.4f, false},
-        {{ 45.0f, 1.2f, -18.0f}, 1.3f, true},
-        {{ 42.0f, 1.0f, -34.0f}, 1.4f, true},
-        {{ 26.0f, 0.2f, -32.0f}, 1.2f, false},
-        {{-55.0f, 3.5f, -25.0f}, 1.6f, true},
-        {{-60.0f, 4.2f, -10.0f}, 1.5f, true},
-        {{-50.0f, 2.8f, -42.0f}, 1.7f, true},
-        {{ 55.0f, 3.0f,  15.0f}, 1.5f, true},
-        {{ 62.0f, 4.0f,  30.0f}, 1.6f, true},
-        {{-15.0f, 0.0f, -30.0f}, 1.2f, true},
-        {{ 12.0f, 0.0f, -28.0f}, 1.1f, true},
-        {{-20.0f, 0.0f, -18.0f}, 1.3f, true},
-        {{ 22.0f, 0.0f, -16.0f}, 1.2f, false}
+    std::vector<HorizonPalm> horizonPalms = {
+        {{-85.0f, 0.0f,  75.0f}, 1.15f,  20.0f, true},
+        {{-72.0f, 0.0f,  78.0f}, 0.95f, -45.0f, false},
+        {{-60.0f, 0.0f,  82.0f}, 1.25f,  60.0f, true},
+        {{-48.0f, 0.0f,  85.0f}, 1.05f, -15.0f, false},
+        {{-35.0f, 0.0f,  88.0f}, 1.20f,  40.0f, true},
+        {{-22.0f, 0.0f,  86.0f}, 0.90f, -80.0f, false},
+        {{-10.0f, 0.0f,  89.0f}, 1.30f,  15.0f, true},
+        {{  2.0f, 0.0f,  92.0f}, 1.10f, -30.0f, false},
+        {{ 14.0f, 0.0f,  90.0f}, 1.25f,  50.0f, true},
+        {{ 26.0f, 0.0f,  88.0f}, 0.95f, -65.0f, false},
+        {{ 38.0f, 0.0f,  86.0f}, 1.20f,  25.0f, true},
+        {{ 50.0f, 0.0f,  84.0f}, 1.05f, -40.0f, false},
+        {{ 62.0f, 0.0f,  82.0f}, 1.15f,  70.0f, true},
+        {{ 75.0f, 0.0f,  80.0f}, 0.90f, -20.0f, false},
+        {{ 88.0f, 0.0f,  78.0f}, 1.25f,  35.0f, true},
+        {{100.0f, 0.0f,  76.0f}, 1.00f, -50.0f, false},
+        // Mid-distance groves
+        {{-52.0f, 0.0f,  55.0f}, 1.10f,  10.0f, true},
+        {{-38.0f, 0.0f,  48.0f}, 0.85f, -70.0f, false},
+        {{ 58.0f, 0.0f,  52.0f}, 1.05f,  45.0f, true},
+        {{ 70.0f, 0.0f,  58.0f}, 0.90f, -35.0f, false},
+        // Opposite side groves
+        {{-65.0f, 0.0f, -45.0f}, 1.15f,  30.0f, true},
+        {{-45.0f, 0.0f, -55.0f}, 1.00f, -25.0f, false},
+        {{ 45.0f, 0.0f, -50.0f}, 1.20f,  55.0f, true},
+        {{ 65.0f, 0.0f, -42.0f}, 0.95f, -15.0f, false}
     };
 
-    std::vector<glm::vec3> hayBalePositions = {
-        {-20.0f, 1.1f, 16.0f}, {-16.0f, 1.1f, 22.0f},
-        {-24.0f, 1.1f, 20.0f}, {-22.0f, 1.1f, 26.0f},
-        {-18.0f, 1.1f, 28.0f}
+    // Dense Foreground & Trailside Reed Clusters
+    struct ReedPos {
+        glm::vec3 pos;
+        float scale;
+        float rotY;
+        bool isDense;
+    };
+    std::vector<ReedPos> reedPatches = {
+        // Foreground along camera and trail
+        {{  4.0f, 0.0f,  12.0f}, 1.25f,  35.0f, true},
+        {{  6.5f, 0.0f,  14.0f}, 1.05f, -60.0f, false},
+        {{  2.5f, 0.0f,  16.0f}, 1.15f,  80.0f, true},
+        {{  8.0f, 0.0f,  18.0f}, 1.30f, -20.0f, true},
+        {{ 10.5f, 0.0f,  21.0f}, 0.95f,  45.0f, false},
+        {{  3.5f, 0.0f,  24.0f}, 1.20f, -75.0f, true},
+        {{  7.0f, 0.0f,  27.0f}, 1.10f,  15.0f, false},
+        {{ 12.0f, 0.0f,  29.0f}, 1.35f, -40.0f, true},
+        // Around the village hut and tree base
+        {{ 14.0f, 0.0f,  35.0f}, 1.15f,  50.0f, true},
+        {{ 16.0f, 0.0f,  31.0f}, 1.25f, -15.0f, true},
+        {{ 13.0f, 0.0f,  27.0f}, 1.00f,  70.0f, false},
+        {{ 26.5f, 0.0f,  33.0f}, 1.10f, -85.0f, true},
+        {{ 28.0f, 0.0f,  28.0f}, 1.20f,  20.0f, false},
+        {{ 27.0f, 0.0f,  36.0f}, 0.90f, -45.0f, true},
+        // Along the wetland water shore
+        {{ 25.0f, 0.0f,  45.0f}, 1.30f,  65.0f, true},
+        {{ 32.0f, 0.0f,  42.0f}, 1.15f, -30.0f, true},
+        {{ 38.0f, 0.0f,  44.0f}, 1.25f,  10.0f, false},
+        {{ 45.0f, 0.0f,  40.0f}, 1.35f, -55.0f, true},
+        {{ 52.0f, 0.0f,  38.0f}, 1.10f,  40.0f, false},
+        {{ 35.0f, 0.0f,  22.0f}, 1.20f, -70.0f, true},
+        {{ 42.0f, 0.0f,  20.0f}, 1.05f,  25.0f, false},
+        // Left meadows
+        {{-12.0f, 0.0f,  18.0f}, 1.10f,  30.0f, true},
+        {{-18.0f, 0.0f,  24.0f}, 1.25f, -40.0f, false},
+        {{-15.0f, 0.0f,  32.0f}, 1.15f,  60.0f, true},
+        {{-22.0f, 0.0f,  28.0f}, 1.30f, -25.0f, true}
     };
 
     std::vector<glm::vec3> boulderPositions = {
@@ -629,6 +652,9 @@ int main() {
         sceneShader.setFloat("uSpotLightOuterCutOff", std::cos(glm::radians(48.0f)));
         sceneShader.setFloat("uSpotLightIntensity", curSpotIntensity);
 
+        sceneShader.setVec3("uSkyColor", curSkyColor);
+        sceneShader.setFloat("uFogDensity", 1.0f);
+
         sceneShader.setFloat("uSpecularStrength", 0.40f);
         sceneShader.setFloat("uShininess", 32.0f);
         sceneShader.setFloat("uAlpha", 1.0f);
@@ -637,14 +663,24 @@ int main() {
         glm::mat4 model(1.0f);
 
         // ==========================================
-        // 1. Draw Celestial Sun / Moon Disc
+        // 1. Draw Celestial Sun / Moon Disc & Sky Backdrop
         // ==========================================
+        sceneShader.setFloat("uEmissive", 1.0f);
+        sceneShader.setFloat("uFogDensity", 0.0f);
+
+        // Sky backdrop (Panoramic pre-monsoon storm clouds with radiant golden sunset break)
+        model = glm::translate(glm::mat4(1.0f), glm::vec3(camera.position.x * 0.25f, -6.0f, camera.position.z * 0.25f));
+        sceneShader.setMat4("uModel", model);
+        skyBackdrop.draw();
+
+        // Sun disc
         glm::vec3 celestialPos = camera.position - curSunDir * 160.0f;
         model = glm::translate(glm::mat4(1.0f), celestialPos);
         sceneShader.setMat4("uModel", model);
-        sceneShader.setFloat("uEmissive", 1.0f);
         celestialDisc.draw();
+
         sceneShader.setFloat("uEmissive", 0.0f);
+        sceneShader.setFloat("uFogDensity", 1.0f);
 
         // ==========================================
         // 2. Draw Rural Meadow & Dirt Road
@@ -765,145 +801,75 @@ int main() {
         windsockCone.draw();
 
         // ==========================================
-        // 5. Draw Rural Architecture
+        // 5. Draw Traditional Rural Landscape (Matching Reference Photo)
         // ==========================================
-        glm::vec3 barnPos(-32.0f, 0.0f, 25.0f);
-        glm::mat4 barnBase = glm::rotate(glm::translate(glm::mat4(1.0f), barnPos), glm::radians(25.0f), glm::vec3(0, 1, 0));
-
-        model = glm::translate(barnBase, glm::vec3(0.0f, 3.25f, 0.0f));
+        // A. Traditional Village Cottage / Hut with Terracotta Hip Roof
+        glm::vec3 hutPos(21.0f, 0.0f, 31.0f);
+        model = glm::translate(glm::mat4(1.0f), hutPos);
+        model = glm::rotate(model, glm::radians(-28.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         sceneShader.setMat4("uModel", model);
-        barnWalls.draw();
+        villageHut.draw();
 
-        model = glm::translate(barnBase, glm::vec3(0.0f, 6.5f, 0.0f));
+        // B. Large Spreading Banyan / Mango Shade Tree (Left of hut, arching over roof)
+        glm::vec3 banyanPos(13.8f, 0.0f, 32.5f);
+        model = glm::translate(glm::mat4(1.0f), banyanPos);
+        model = glm::rotate(model, glm::radians(15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.18f, 1.12f, 1.18f));
         sceneShader.setMat4("uModel", model);
-        barnRoof.draw();
+        banyanTree.draw();
 
-        model = glm::translate(barnBase, glm::vec3(0.0f, 2.25f, 9.05f));
+        // Second banyan tree in mid-distance meadow
+        glm::vec3 banyan2Pos(-38.0f, 0.0f, 28.0f);
+        model = glm::translate(glm::mat4(1.0f), banyan2Pos);
+        model = glm::rotate(model, glm::radians(-40.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.30f, 1.25f, 1.30f));
         sceneShader.setMat4("uModel", model);
-        barnDoors.draw();
+        banyanTree.draw();
 
-        model = glm::translate(barnBase, glm::vec3(0.0f, 2.25f, 9.15f));
+        // C. Wetland Water Mirror (Right of the hut, reflecting the golden sky)
+        glm::vec3 waterPos(46.0f, -0.02f, 36.0f);
+        model = glm::translate(glm::mat4(1.0f), waterPos);
+        model = glm::rotate(model, glm::radians(8.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         sceneShader.setMat4("uModel", model);
-        barnDoorCross.draw();
+        sceneShader.setFloat("uSpecularStrength", 0.75f);
+        sceneShader.setFloat("uShininess", 64.0f);
+        wetlandWater.draw();
+        sceneShader.setFloat("uSpecularStrength", 0.40f);
+        sceneShader.setFloat("uShininess", 32.0f);
 
-        glm::vec3 siloPos = barnPos + glm::vec3(9.5f, 0.0f, -2.0f);
-        model = glm::translate(glm::mat4(1.0f), siloPos + glm::vec3(0.0f, 5.0f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        siloTower.draw();
-
-        model = glm::translate(glm::mat4(1.0f), siloPos + glm::vec3(0.0f, 10.0f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        siloCap.draw();
-
-        // Windmill (Continuous dynamic rotation)
-        glm::vec3 windmillPos(38.0f, 0.5f, -28.0f);
-        glm::mat4 windmillBaseTrans = glm::translate(glm::mat4(1.0f), windmillPos);
-
-        model = glm::translate(windmillBaseTrans, glm::vec3(0.0f, 6.75f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        windmillBase.draw();
-
-        model = glm::translate(windmillBaseTrans, glm::vec3(0.0f, 9.2f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        windmillBalcony.draw();
-
-        model = glm::translate(windmillBaseTrans, glm::vec3(0.0f, 15.4f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        windmillRoof.draw();
-
-        glm::vec3 hubPos = windmillPos + glm::vec3(-2.8f, 13.8f, 0.8f);
-        model = glm::translate(glm::mat4(1.0f), hubPos);
-        model = glm::rotate(model, glm::radians(70.0f), glm::vec3(0, 1, 0));
-        sceneShader.setMat4("uModel", model);
-        windmillHub.draw();
-
-        for (int i = 0; i < 4; ++i) {
-            float bladeAngle = windmillAngle + i * 90.0f;
-            glm::mat4 bladeModel = glm::translate(glm::mat4(1.0f), hubPos);
-            bladeModel = glm::rotate(bladeModel, glm::radians(70.0f), glm::vec3(0, 1, 0));
-            bladeModel = glm::rotate(bladeModel, glm::radians(bladeAngle), glm::vec3(0, 0, 1));
-            sceneShader.setMat4("uModel", bladeModel);
-            windmillBlade.draw();
-        }
-
-        // Cottage
-        glm::vec3 cottagePos(28.0f, 0.0f, 26.0f);
-        glm::mat4 cottageTrans = glm::rotate(glm::translate(glm::mat4(1.0f), cottagePos), glm::radians(-35.0f), glm::vec3(0, 1, 0));
-
-        model = glm::translate(cottageTrans, glm::vec3(0.0f, 2.25f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        cottageWalls.draw();
-
-        model = glm::translate(cottageTrans, glm::vec3(0.0f, 4.5f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        cottageRoof.draw();
-
-        model = glm::translate(cottageTrans, glm::vec3(-3.2f, 4.0f, 2.2f));
-        sceneShader.setMat4("uModel", model);
-        cottageChimney.draw();
-
-        model = glm::translate(cottageTrans, glm::vec3(0.0f, 1.4f, 3.8f));
-        sceneShader.setMat4("uModel", model);
-        cottageDoor.draw();
-
-        // Hay bales
-        for (const auto& pos : hayBalePositions) {
-            model = glm::translate(glm::mat4(1.0f), pos);
-            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0, 0, 1));
-            model = glm::rotate(model, glm::radians(pos.x * 3.0f), glm::vec3(0, 1, 0));
+        // D. Horizon Tropical Coconut Palm Silhouettes
+        for (const auto& palm : horizonPalms) {
+            model = glm::translate(glm::mat4(1.0f), palm.pos);
+            model = glm::rotate(model, glm::radians(palm.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(palm.scale, palm.scale, palm.scale));
             sceneShader.setMat4("uModel", model);
-            hayBale.draw();
-        }
-
-        // Fences
-        for (int i = 0; i < 7; ++i) {
-            float fenceX = -38.0f + i * 4.0f;
-            float fenceZ = 12.0f;
-            model = glm::translate(glm::mat4(1.0f), glm::vec3(fenceX, 0.6f, fenceZ));
-            sceneShader.setMat4("uModel", model);
-            pastureFencePost.draw();
-
-            if (i < 6) {
-                model = glm::translate(glm::mat4(1.0f), glm::vec3(fenceX + 2.0f, 0.9f, fenceZ));
-                sceneShader.setMat4("uModel", model);
-                pastureFenceRail.draw();
-                model = glm::translate(glm::mat4(1.0f), glm::vec3(fenceX + 2.0f, 0.45f, fenceZ));
-                sceneShader.setMat4("uModel", model);
-                pastureFenceRail.draw();
-            }
-        }
-
-        // Boulders
-        for (size_t i = 0; i < boulderPositions.size(); ++i) {
-            float scale = 0.8f + (i % 3) * 0.25f;
-            model = glm::translate(glm::mat4(1.0f), boulderPositions[i]);
-            model = glm::scale(model, glm::vec3(scale * 1.3f, scale * 0.8f, scale));
-            sceneShader.setMat4("uModel", model);
-            boulder.draw();
-        }
-
-        // Trees
-        for (const auto& t : trees) {
-            model = glm::translate(glm::mat4(1.0f), t.pos + glm::vec3(0.0f, 2.0f * t.scale, 0.0f));
-            model = glm::scale(model, glm::vec3(t.scale, t.scale, t.scale));
-            sceneShader.setMat4("uModel", model);
-            treeTrunk.draw();
-
-            if (t.isPine) {
-                for (int tier = 0; tier < 3; ++tier) {
-                    float tierY = (3.5f + tier * 1.8f) * t.scale;
-                    float tierScale = (1.0f - tier * 0.22f) * t.scale;
-                    model = glm::translate(glm::mat4(1.0f), t.pos + glm::vec3(0.0f, tierY, 0.0f));
-                    model = glm::scale(model, glm::vec3(tierScale, tierScale, tierScale));
-                    sceneShader.setMat4("uModel", model);
-                    treeFoliagePine.draw();
-                }
+            if (palm.isTall) {
+                palmTreeTall.draw();
             } else {
-                model = glm::translate(glm::mat4(1.0f), t.pos + glm::vec3(0.0f, 5.0f * t.scale, 0.0f));
-                model = glm::scale(model, glm::vec3(t.scale, t.scale * 1.1f, t.scale));
-                sceneShader.setMat4("uModel", model);
-                treeFoliageLeafy.draw();
+                palmTreeStd.draw();
             }
+        }
+
+        // E. Wild Reed & Tall Grass Clusters (Foreground, Trailside & Waterbank)
+        for (const auto& reed : reedPatches) {
+            model = glm::translate(glm::mat4(1.0f), reed.pos);
+            model = glm::rotate(model, glm::radians(reed.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(reed.scale, reed.scale, reed.scale));
+            sceneShader.setMat4("uModel", model);
+            if (reed.isDense) {
+                reedClusterDense.draw();
+            } else {
+                reedClusterLight.draw();
+            }
+        }
+
+        // F. Weathered Mossy Boulders & Earth Mounds
+        for (size_t i = 0; i < boulderPositions.size(); ++i) {
+            float bScale = 0.75f + (i % 3) * 0.25f;
+            model = glm::translate(glm::mat4(1.0f), boulderPositions[i]);
+            model = glm::scale(model, glm::vec3(bScale * 1.25f, bScale * 0.70f, bScale * 0.95f));
+            sceneShader.setMat4("uModel", model);
+            rusticBoulder.draw();
         }
 
         // ==========================================

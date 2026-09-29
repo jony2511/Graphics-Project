@@ -259,17 +259,18 @@ Mesh ModelGenerator::createBalloonEnvelope(float radius, float height, int rings
 
 static float getTerrainHeight(float x, float z) {
     float dist = std::sqrt(x * x + z * z);
-    // Keep central meadow and village clearing flat
-    if (dist < 22.0f) return 0.0f;
+    // Flat central area for launchpad and trail
+    if (dist < 16.0f) return 0.0f;
 
-    float weight = std::clamp((dist - 22.0f) / 36.0f, 0.0f, 1.0f);
+    // Gentle natural wetland plain with subtle drainage knolls
+    float weight = std::clamp((dist - 16.0f) / 42.0f, 0.0f, 1.0f);
     weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep
 
-    float h1 = 6.5f * std::sin(x * 0.038f) * std::cos(z * 0.042f);
-    float h2 = 4.0f * std::sin(x * 0.072f + 1.2f) * std::sin(z * 0.065f - 0.7f);
-    float h3 = 3.5f * std::cos(dist * 0.035f);
+    float h1 = 2.2f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
+    float h2 = 1.4f * std::sin(x * 0.048f + 1.2f) * std::sin(z * 0.042f + 0.7f);
+    float h3 = 0.8f * std::cos(dist * 0.018f);
 
-    return weight * (h1 + h2 + h3 + 1.8f);
+    return weight * (h1 + h2 + h3);
 }
 
 Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivisions) {
@@ -297,12 +298,32 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
 
             glm::vec3 norm = glm::normalize(glm::vec3((hL - hR) / (2.0f * eps), 1.0f, (hD - hU) / (2.0f * eps)));
 
-            // Color gradient: lush valley green to warm sunny slope green
-            float heightRatio = std::clamp(posY / 10.0f, 0.0f, 1.0f);
-            glm::vec3 valleyGreen(0.28f, 0.58f, 0.22f);
-            glm::vec3 hillGreen(0.36f, 0.62f, 0.25f);
-            float subtleChecker = ((x + z) % 2 == 0) ? 1.0f : 0.94f;
-            glm::vec3 vertColor = glm::mix(valleyGreen, hillGreen, heightRatio) * subtleChecker;
+            // Rich multi-tone organic wetland vegetation palette matching reference photograph:
+            // Deep emerald paddy, moist marsh moss, sun-kissed golden reeds, earthy moist soil
+            float n1 = std::sin(posX * 0.09f + posZ * 0.07f);
+            float n2 = std::cos(posX * 0.045f - posZ * 0.065f + 1.4f);
+            float noise = (n1 + n2) * 0.5f; // [-1.0, 1.0]
+
+            glm::vec3 deepMoss(0.12f, 0.28f, 0.10f);       // Deep damp marsh green
+            glm::vec3 marshEmerald(0.18f, 0.44f, 0.15f);   // Lush vibrant paddy green
+            glm::vec3 sunlitGrass(0.28f, 0.52f, 0.18f);    // Sun-kissed golden-green reeds
+            glm::vec3 earthySoil(0.34f, 0.28f, 0.18f);     // Moist earth patches
+
+            glm::vec3 vertColor;
+            if (noise < -0.25f) {
+                float t = (noise + 1.0f) / 0.75f;
+                vertColor = glm::mix(deepMoss, marshEmerald, glm::clamp(t, 0.0f, 1.0f));
+            } else if (noise < 0.35f) {
+                float t = (noise + 0.25f) / 0.60f;
+                vertColor = glm::mix(marshEmerald, sunlitGrass, glm::clamp(t, 0.0f, 1.0f));
+            } else {
+                float t = (noise - 0.35f) / 0.65f;
+                vertColor = glm::mix(sunlitGrass, earthySoil, glm::clamp(t, 0.0f, 1.0f));
+            }
+
+            // Elevation and slope modulation for natural shading
+            float slopeFactor = glm::clamp(norm.y, 0.7f, 1.0f);
+            vertColor *= (0.85f + 0.15f * slopeFactor);
 
             vertices.push_back({{posX, posY, posZ}, norm, vertColor, {(float)x / subdivisions, (float)z / subdivisions}});
         }
@@ -489,55 +510,56 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    const int numSteps = 40;
-    const float roadWidth = 4.8f;
-    glm::vec3 roadColorCenter(0.62f, 0.50f, 0.35f); // Warm sandstone dirt
-    glm::vec3 roadColorEdge(0.48f, 0.38f, 0.25f);   // Darker roadside earth
+    const int numSteps = 54;
+    const float roadWidth = 4.2f;
+
+    // Earthy rural dirt trail colors matching the photograph
+    glm::vec3 pathCenter(0.48f, 0.40f, 0.28f);  // Sandy-mud worn dirt
+    glm::vec3 pathRut(0.35f, 0.28f, 0.18f);     // Dark moist wheel/foot depressions
+    glm::vec3 pathGrass(0.24f, 0.38f, 0.16f);   // Encroaching grass edge
 
     for (int i = 0; i <= numSteps; ++i) {
         float t = (float)i / (float)numSteps;
-        // S-curve parametric spline from launchpad (0, 0, 8) into the rural meadow (28, 0, 85)
-        float z = 8.0f + t * 78.0f;
-        float x = 24.0f * std::sin(t * (float)M_PI * 1.15f) + 4.0f * std::sin(t * 4.0f);
-        float y = 0.06f; // Elevated slightly above terrain to prevent z-fighting
+        // Natural curve winding past the village hut front porch
+        float z = 6.0f + t * 92.0f;
+        float x = 20.0f * std::sin(t * (float)M_PI * 1.1f) + 3.0f * std::sin(t * 5.0f);
+        float y = getTerrainHeight(x, z) + 0.05f; // Raised slightly above terrain
 
         // Tangent & Normal
-        float dz = 78.0f;
-        float dx = 24.0f * (float)M_PI * 1.15f * std::cos(t * (float)M_PI * 1.15f) + 16.0f * std::cos(t * 4.0f);
+        float dz = 92.0f;
+        float dx = 22.0f * (float)M_PI * std::cos(t * (float)M_PI * 1.1f) + 15.0f * std::cos(t * 5.0f);
         glm::vec3 tangent = glm::normalize(glm::vec3(dx, 0.0f, dz));
         glm::vec3 side = glm::normalize(glm::vec3(-tangent.z, 0.0f, tangent.x));
         glm::vec3 norm(0.0f, 1.0f, 0.0f);
 
-        glm::vec3 pLeft = glm::vec3(x, y, z) - side * (roadWidth * 0.5f);
-        glm::vec3 pCenter = glm::vec3(x, y + 0.015f, z);
-        glm::vec3 pRight = glm::vec3(x, y, z) + side * (roadWidth * 0.5f);
+        // 5 Cross-sectional profile points: OuterL, RutL, Center, RutR, OuterR
+        float wHalf = roadWidth * 0.5f;
+        glm::vec3 p0 = glm::vec3(x, y, z) - side * wHalf;
+        glm::vec3 p1 = glm::vec3(x, y - 0.02f, z) - side * (wHalf * 0.5f);
+        glm::vec3 p2 = glm::vec3(x, y + 0.015f, z);
+        glm::vec3 p3 = glm::vec3(x, y - 0.02f, z) + side * (wHalf * 0.5f);
+        glm::vec3 p4 = glm::vec3(x, y, z) + side * wHalf;
 
-        vertices.push_back({pLeft, norm, roadColorEdge, {0.0f, t}});
-        vertices.push_back({pCenter, norm, roadColorCenter, {0.5f, t}});
-        vertices.push_back({pRight, norm, roadColorEdge, {1.0f, t}});
+        vertices.push_back({p0, norm, pathGrass,  {0.00f, t}});
+        vertices.push_back({p1, norm, pathRut,    {0.25f, t}});
+        vertices.push_back({p2, norm, pathCenter, {0.50f, t}});
+        vertices.push_back({p3, norm, pathRut,    {0.75f, t}});
+        vertices.push_back({p4, norm, pathGrass,  {1.00f, t}});
     }
 
     for (int i = 0; i < numSteps; ++i) {
-        unsigned int row1 = i * 3;
-        unsigned int row2 = (i + 1) * 3;
+        unsigned int row1 = i * 5;
+        unsigned int row2 = (i + 1) * 5;
 
-        // Left quad
-        indices.push_back(row1);
-        indices.push_back(row2);
-        indices.push_back(row1 + 1);
+        for (int c = 0; c < 4; ++c) {
+            indices.push_back(row1 + c);
+            indices.push_back(row2 + c);
+            indices.push_back(row1 + c + 1);
 
-        indices.push_back(row1 + 1);
-        indices.push_back(row2);
-        indices.push_back(row2 + 1);
-
-        // Right quad
-        indices.push_back(row1 + 1);
-        indices.push_back(row2 + 1);
-        indices.push_back(row1 + 2);
-
-        indices.push_back(row1 + 2);
-        indices.push_back(row2 + 1);
-        indices.push_back(row2 + 2);
+            indices.push_back(row1 + c + 1);
+            indices.push_back(row2 + c);
+            indices.push_back(row2 + c + 1);
+        }
     }
 
     return Mesh(vertices, indices);
@@ -1132,6 +1154,575 @@ Mesh ModelGenerator::createShadowDisc(float radius, int sectors) {
         indices.push_back(inCur);
         indices.push_back(outNext);
         indices.push_back(inNext);
+    }
+
+    return Mesh(vertices, indices);
+}
+
+// ========================================================
+// Authentic Rural Architecture & Environment (Matching Photo)
+// ========================================================
+
+Mesh ModelGenerator::createVillageHut() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    auto addBox = [&](glm::vec3 pMin, glm::vec3 pMax, glm::vec3 col) {
+        unsigned int b = (unsigned int)vertices.size();
+        glm::vec3 n;
+        // Top (+Y)
+        n = glm::vec3(0, 1, 0);
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col, {0, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Bottom (-Y)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, -1, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.7f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.7f, {1, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.7f, {1, 1}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.7f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Front (+Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, 1);
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.95f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.95f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.95f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.95f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Back (-Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, -1);
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.85f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.85f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.85f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.85f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Left (-X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(-1, 0, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.90f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.90f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.90f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.90f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Right (+X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(1, 0, 0);
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.92f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.92f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.92f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.92f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+    };
+
+    // Color Palette from Photograph
+    glm::vec3 plinthCol(0.55f, 0.50f, 0.44f);     // Weathered earthen concrete plinth
+    glm::vec3 plinthTrim(0.40f, 0.36f, 0.30f);    // Damp foundation soil edge
+    glm::vec3 wallPlaster(0.72f, 0.68f, 0.60f);   // Weathered beige lime/mud plaster
+    glm::vec3 wallShadow(0.58f, 0.54f, 0.46f);    // Stained plaster base
+    glm::vec3 pillarCol(0.74f, 0.71f, 0.65f);     // Rustic veranda pillars
+    glm::vec3 ledgeCol(0.62f, 0.58f, 0.50f);      // Veranda sitting ledge
+    glm::vec3 darkInterior(0.10f, 0.08f, 0.06f);  // Shaded doorway interior
+    glm::vec3 tileRed1(0.56f, 0.25f, 0.18f);      // Terracotta clay tile base
+    glm::vec3 tileRed2(0.46f, 0.20f, 0.14f);      // Weathered dark tile
+    glm::vec3 tileRed3(0.62f, 0.29f, 0.21f);      // Sunlit tile highlight
+    glm::vec3 tileRidge(0.38f, 0.17f, 0.12f);     // Dark ridge cap tiles
+    glm::vec3 woodBeam(0.28f, 0.18f, 0.12f);      // Roof underside timbers
+
+    // 1. Raised Foundation Plinth
+    addBox({-5.6f, 0.0f, -4.5f}, {5.6f, 0.65f, 4.5f}, plinthCol);
+    addBox({-5.7f, 0.0f, -4.6f}, {5.7f, 0.22f, 4.6f}, plinthTrim); // Damp ground border
+    addBox({-1.4f, 0.0f, 4.5f}, {1.4f, 0.35f, 5.3f}, plinthCol * 0.95f); // Front entry steps
+
+    // 2. Enclosed Main Room (Back Section)
+    // Back wall
+    addBox({-5.0f, 0.65f, -4.0f}, {5.0f, 3.65f, -3.6f}, wallPlaster);
+    // Left exterior wall
+    addBox({-5.0f, 0.65f, -4.0f}, {-4.6f, 3.65f, 1.0f}, wallPlaster);
+    // Right exterior wall
+    addBox({4.6f, 0.65f, -4.0f}, {5.0f, 3.65f, 1.0f}, wallPlaster);
+    // Plaster stain band along bottom of walls
+    addBox({-5.05f, 0.65f, -4.05f}, {5.05f, 1.25f, -3.55f}, wallShadow);
+    addBox({-5.05f, 0.65f, -4.05f}, {-4.55f, 1.25f, 1.05f}, wallShadow);
+    addBox({4.55f, 0.65f, -4.05f}, {5.05f, 1.25f, 1.05f}, wallShadow);
+
+    // Front interior partition wall with open doorway and window
+    addBox({-4.6f, 0.65f, 0.7f}, {-1.3f, 3.65f, 1.0f}, wallPlaster); // Left front wall
+    addBox({1.3f, 0.65f, 0.7f}, {4.6f, 3.65f, 1.0f}, wallPlaster);   // Right front wall
+    addBox({-1.3f, 2.95f, 0.7f}, {1.3f, 3.65f, 1.0f}, wallPlaster);  // Doorway lintel
+    addBox({-1.25f, 0.65f, 0.5f}, {1.25f, 2.95f, 0.75f}, darkInterior); // Recessed interior void
+    // Side window on right
+    addBox({2.2f, 1.7f, 0.65f}, {3.7f, 2.7f, 1.05f}, darkInterior);
+    addBox({2.1f, 2.7f, 0.62f}, {3.8f, 2.85f, 1.08f}, woodBeam);     // Window wooden lintel
+
+    // 3. Open Front Veranda with Rustic Square Pillars
+    // Veranda floor
+    addBox({-4.8f, 0.65f, 1.0f}, {4.8f, 0.68f, 4.0f}, glm::vec3(0.58f, 0.54f, 0.46f));
+
+    // 4 Rustic square pillars supporting the veranda roof
+    float pillarXs[4] = {-4.5f, -1.6f, 1.6f, 4.5f};
+    for (int p = 0; p < 4; ++p) {
+        float px = pillarXs[p];
+        addBox({px - 0.22f, 0.65f, 3.7f - 0.22f}, {px + 0.22f, 3.65f, 3.7f + 0.22f}, pillarCol);
+        addBox({px - 0.26f, 0.65f, 3.7f - 0.26f}, {px + 0.26f, 1.15f, 3.7f + 0.26f}, pillarCol * 0.85f); // Pillar base
+    }
+
+    // Low waist-high sitting parapet ledges between outer pillars
+    addBox({-4.3f, 0.65f, 3.60f}, {-1.8f, 1.55f, 3.82f}, ledgeCol); // Left front ledge
+    addBox({1.8f, 0.65f, 3.60f}, {4.3f, 1.55f, 3.82f}, ledgeCol);   // Right front ledge
+    addBox({-4.7f, 0.65f, 1.0f}, {-4.45f, 1.55f, 3.5f}, ledgeCol);  // Left side veranda wall
+    addBox({4.45f, 0.65f, 1.0f}, {4.7f, 1.55f, 3.5f}, ledgeCol);   // Right side veranda wall
+
+    // Horizontal wooden eave beams
+    addBox({-5.2f, 3.55f, 3.55f}, {5.2f, 3.75f, 3.85f}, woodBeam);
+    addBox({-5.0f, 3.55f, -4.1f}, {5.0f, 3.75f, -3.8f}, woodBeam);
+    addBox({-5.1f, 3.55f, -4.0f}, {-4.8f, 3.75f, 3.8f}, woodBeam);
+    addBox({4.8f, 3.55f, -4.0f}, {5.1f, 3.75f, 3.8f}, woodBeam);
+
+    // 4. Authentic 4-Sided Terracotta Clay Tiled Hip Roof
+    // Eaves footprint: X in [-6.4, 6.4], Z in [-5.3, 5.2], Y = 3.65
+    // Apex Ridge: X in [-2.6, 2.6], Z = -0.2, Y = 6.40
+    float eavesY = 3.65f;
+    float ridgeY = 6.40f;
+    float eaveXMin = -6.4f, eaveXMax = 6.4f;
+    float eaveZMin = -5.3f, eaveZMax = 5.2f;
+    float ridgeXMin = -2.6f, ridgeXMax = 2.6f;
+    float ridgeZ = -0.15f;
+
+    const int tileTiers = 7;
+    for (int t = 0; t < tileTiers; ++t) {
+        float f0 = (float)t / (float)tileTiers;
+        float f1 = (float)(t + 1) / (float)tileTiers;
+
+        // Front Hip Slope Rows (Z from ridgeZ to eaveZMax)
+        float y0 = glm::mix(ridgeY, eavesY, f0);
+        float y1 = glm::mix(ridgeY, eavesY, f1);
+
+        float zF0 = glm::mix(ridgeZ, eaveZMax, f0);
+        float zF1 = glm::mix(ridgeZ, eaveZMax, f1);
+        float xLF0 = glm::mix(ridgeXMin, eaveXMin, f0);
+        float xRF0 = glm::mix(ridgeXMax, eaveXMax, f0);
+        float xLF1 = glm::mix(ridgeXMin, eaveXMin, f1);
+        float xRF1 = glm::mix(ridgeXMax, eaveXMax, f1);
+
+        glm::vec3 nFront = glm::normalize(glm::vec3(0.0f, (eaveZMax - ridgeZ), (ridgeY - eavesY)));
+        glm::vec3 colFront = (t % 2 == 0) ? tileRed1 : ((t % 3 == 0) ? tileRed3 : tileRed2);
+
+        unsigned int b = (unsigned int)vertices.size();
+        vertices.push_back({{xLF0, y0, zF0}, nFront, colFront, {0, f0}});
+        vertices.push_back({{xRF0, y0, zF0}, nFront, colFront, {1, f0}});
+        vertices.push_back({{xRF1, y1, zF1}, nFront, colFront * 0.96f, {1, f1}});
+        vertices.push_back({{xLF1, y1, zF1}, nFront, colFront * 0.96f, {0, f1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Back Hip Slope Rows (Z from ridgeZ to eaveZMin)
+        float zB0 = glm::mix(ridgeZ, eaveZMin, f0);
+        float zB1 = glm::mix(ridgeZ, eaveZMin, f1);
+        float xLB0 = glm::mix(ridgeXMin, eaveXMin, f0);
+        float xRB0 = glm::mix(ridgeXMax, eaveXMax, f0);
+        float xLB1 = glm::mix(ridgeXMin, eaveXMin, f1);
+        float xRB1 = glm::mix(ridgeXMax, eaveXMax, f1);
+
+        glm::vec3 nBack = glm::normalize(glm::vec3(0.0f, (ridgeZ - eaveZMin), -(ridgeY - eavesY)));
+        glm::vec3 colBack = (t % 2 == 1) ? tileRed1 : tileRed2;
+
+        b = (unsigned int)vertices.size();
+        vertices.push_back({{xRB0, y0, zB0}, nBack, colBack, {1, f0}});
+        vertices.push_back({{xLB0, y0, zB0}, nBack, colBack, {0, f0}});
+        vertices.push_back({{xLB1, y1, zB1}, nBack, colBack * 0.94f, {0, f1}});
+        vertices.push_back({{xRB1, y1, zB1}, nBack, colBack * 0.94f, {1, f1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Left Triangular Hip Face Rows
+        glm::vec3 nLeft = glm::normalize(glm::vec3(-(ridgeY - eavesY), (ridgeXMax - ridgeXMin) * 0.4f, 0.0f));
+        glm::vec3 colLeft = (t % 2 == 0) ? tileRed2 : tileRed1;
+
+        b = (unsigned int)vertices.size();
+        vertices.push_back({{xLF0, y0, zF0}, nLeft, colLeft, {0, f0}});
+        vertices.push_back({{xLF1, y1, zF1}, nLeft, colLeft, {0, f1}});
+        vertices.push_back({{xLB1, y1, zB1}, nLeft, colLeft, {1, f1}});
+        vertices.push_back({{xLB0, y0, zB0}, nLeft, colLeft, {1, f0}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Right Triangular Hip Face Rows
+        glm::vec3 nRight = glm::normalize(glm::vec3((ridgeY - eavesY), (ridgeXMax - ridgeXMin) * 0.4f, 0.0f));
+        glm::vec3 colRight = (t % 2 == 1) ? tileRed3 : tileRed1;
+
+        b = (unsigned int)vertices.size();
+        vertices.push_back({{xRF0, y0, zF0}, nRight, colRight, {0, f0}});
+        vertices.push_back({{xRB0, y0, zB0}, nRight, colRight, {1, f0}});
+        vertices.push_back({{xRB1, y1, zB1}, nRight, colRight, {1, f1}});
+        vertices.push_back({{xRF1, y1, zF1}, nRight, colRight, {0, f1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+    }
+
+    // Top Main Ridge Cap Beam
+    addBox({ridgeXMin - 0.2f, ridgeY - 0.05f, ridgeZ - 0.22f}, {ridgeXMax + 0.2f, ridgeY + 0.18f, ridgeZ + 0.22f}, tileRidge);
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createBanyanShadeTree() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    auto addCylinderSeg = [&](glm::vec3 pBot, glm::vec3 pTop, float rBot, float rTop, glm::vec3 col, int sectors = 10) {
+        glm::vec3 dir = pTop - pBot;
+        float len = glm::length(dir);
+        if (len < 0.001f) return;
+        dir = glm::normalize(dir);
+
+        glm::vec3 up(0, 1, 0);
+        glm::vec3 side = glm::cross(up, dir);
+        if (glm::length(side) < 0.001f) side = glm::cross(glm::vec3(1, 0, 0), dir);
+        side = glm::normalize(side);
+        glm::vec3 forward = glm::normalize(glm::cross(dir, side));
+
+        unsigned int b = (unsigned int)vertices.size();
+        for (int i = 0; i <= sectors; ++i) {
+            float angle = 2.0f * (float)M_PI * (float)i / (float)sectors;
+            float c = std::cos(angle);
+            float s = std::sin(angle);
+            glm::vec3 radial = side * c + forward * s;
+
+            glm::vec3 vBot = pBot + radial * rBot;
+            glm::vec3 vTop = pTop + radial * rTop;
+
+            vertices.push_back({vBot, radial, col, {(float)i / sectors, 0.0f}});
+            vertices.push_back({vTop, radial, col * 0.95f, {(float)i / sectors, 1.0f}});
+        }
+
+        for (int i = 0; i < sectors; ++i) {
+            unsigned int idx = b + i * 2;
+            indices.push_back(idx);
+            indices.push_back(idx + 1);
+            indices.push_back(idx + 3);
+
+            indices.push_back(idx);
+            indices.push_back(idx + 3);
+            indices.push_back(idx + 2);
+        }
+    };
+
+    auto addFoliageCluster = [&](glm::vec3 center, glm::vec3 radii, glm::vec3 col, int rings = 10, int sectors = 12) {
+        unsigned int b = (unsigned int)vertices.size();
+        for (int r = 0; r <= rings; ++r) {
+            float phi = (float)r / (float)rings * (float)M_PI;
+            float sinP = std::sin(phi);
+            float cosP = std::cos(phi);
+
+            for (int s = 0; s <= sectors; ++s) {
+                float theta = (float)s / (float)sectors * 2.0f * (float)M_PI;
+                float sinT = std::sin(theta);
+                float cosT = std::cos(theta);
+
+                glm::vec3 unitNorm(sinP * cosT, cosP, sinP * sinT);
+                glm::vec3 pos = center + unitNorm * radii;
+
+                // Subtle sunlit tint on upper leaves
+                glm::vec3 leafCol = col * (0.85f + 0.30f * std::max(cosP, 0.0f));
+                vertices.push_back({pos, unitNorm, leafCol, {(float)s / sectors, (float)r / rings}});
+            }
+        }
+
+        for (int r = 0; r < rings; ++r) {
+            for (int s = 0; s < sectors; ++s) {
+                unsigned int cur = b + r * (sectors + 1) + s;
+                unsigned int next = cur + (sectors + 1);
+
+                indices.push_back(cur);
+                indices.push_back(next);
+                indices.push_back(cur + 1);
+
+                indices.push_back(cur + 1);
+                indices.push_back(next);
+                indices.push_back(next + 1);
+            }
+        }
+    };
+
+    glm::vec3 barkCol(0.30f, 0.22f, 0.15f);
+
+    // 1. Organic Root Flares & Main Trunk
+    addCylinderSeg({0.0f, 0.0f, 0.0f}, {0.0f, 3.8f, 0.0f}, 1.25f, 0.85f, barkCol, 12);
+    addCylinderSeg({-0.8f, 0.0f, -0.6f}, {0.0f, 1.4f, 0.0f}, 0.55f, 0.40f, barkCol * 0.9f, 8);
+    addCylinderSeg({0.9f, 0.0f, -0.4f}, {0.0f, 1.6f, 0.0f}, 0.50f, 0.35f, barkCol * 0.9f, 8);
+    addCylinderSeg({0.3f, 0.0f, 0.8f}, {0.0f, 1.5f, 0.0f}, 0.60f, 0.40f, barkCol * 0.9f, 8);
+
+    // 2. Thick Spreading Boughs
+    addCylinderSeg({0.0f, 3.8f, 0.0f}, {-2.4f, 6.2f, 1.2f}, 0.70f, 0.42f, barkCol, 10);
+    addCylinderSeg({0.0f, 3.8f, 0.0f}, {2.8f, 6.0f, 0.8f}, 0.65f, 0.38f, barkCol, 10);
+    addCylinderSeg({0.0f, 3.8f, 0.0f}, {-0.8f, 6.8f, -2.2f}, 0.60f, 0.35f, barkCol, 10);
+    addCylinderSeg({0.0f, 3.8f, 0.0f}, {0.5f, 7.5f, 0.2f}, 0.65f, 0.36f, barkCol, 10);
+
+    // Secondary branches spreading over the hut roof
+    addCylinderSeg({2.8f, 6.0f, 0.8f}, {4.8f, 7.2f, 1.8f}, 0.38f, 0.22f, barkCol, 8);
+    addCylinderSeg({-2.4f, 6.2f, 1.2f}, {-4.2f, 7.0f, 2.2f}, 0.42f, 0.24f, barkCol, 8);
+
+    // 3. Multi-Tiered Layered Foliage Clusters (Photorealistic Organic Canopy)
+    glm::vec3 darkGreen(0.12f, 0.26f, 0.09f);   // Deep inner shade leaves
+    glm::vec3 emeraldGreen(0.18f, 0.40f, 0.14f); // Rich lush green
+    glm::vec3 sunlitGreen(0.32f, 0.52f, 0.18f);  // Warm sun-kissed foliage
+
+    addFoliageCluster({0.0f, 8.8f, 0.0f}, {3.8f, 2.8f, 3.8f}, sunlitGreen);
+    addFoliageCluster({-2.8f, 7.2f, 1.4f}, {3.2f, 2.4f, 3.2f}, emeraldGreen);
+    addFoliageCluster({3.2f, 7.0f, 1.2f}, {3.5f, 2.5f, 3.4f}, sunlitGreen);
+    addFoliageCluster({-1.0f, 7.5f, -2.6f}, {3.2f, 2.2f, 3.0f}, darkGreen);
+    addFoliageCluster({1.4f, 8.2f, -1.8f}, {3.0f, 2.4f, 2.8f}, darkGreen);
+    addFoliageCluster({-4.2f, 7.2f, 2.4f}, {2.6f, 2.0f, 2.6f}, emeraldGreen);
+    addFoliageCluster({5.0f, 7.4f, 2.0f}, {2.8f, 2.2f, 2.8f}, sunlitGreen);
+    addFoliageCluster({0.0f, 6.5f, 2.6f}, {2.8f, 1.8f, 2.5f}, emeraldGreen);
+    addFoliageCluster({-1.8f, 8.8f, 0.8f}, {2.6f, 2.0f, 2.6f}, sunlitGreen);
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createPalmTree(float height, float tiltAngleDeg) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const int trunkSegs = 14;
+    const int sectors = 8;
+    float tiltRad = glm::radians(tiltAngleDeg);
+
+    glm::vec3 barkDark(0.36f, 0.30f, 0.22f);
+    glm::vec3 barkLight(0.48f, 0.40f, 0.30f);
+
+    float curX = 0.0f, curY = 0.0f, curZ = 0.0f;
+    float rBase = 0.42f;
+
+    // 1. Slender ringed trunk with natural graceful curve
+    for (int seg = 0; seg <= trunkSegs; ++seg) {
+        float t = (float)seg / (float)trunkSegs;
+        float segY = t * height;
+        float segX = std::sin(t * 1.8f) * (height * 0.16f * std::sin(tiltRad));
+        float segZ = std::cos(t * 1.8f) * (height * 0.14f * std::cos(tiltRad));
+
+        float r = rBase * (1.0f - t * 0.45f);
+        glm::vec3 col = (seg % 2 == 0) ? barkDark : barkLight;
+
+        for (int s = 0; s <= sectors; ++s) {
+            float angle = 2.0f * (float)M_PI * (float)s / (float)sectors;
+            glm::vec3 norm(std::cos(angle), 0.15f, std::sin(angle));
+            norm = glm::normalize(norm);
+            glm::vec3 pos(segX + norm.x * r, segY, segZ + norm.z * r);
+
+            vertices.push_back({pos, norm, col, {(float)s / sectors, t}});
+        }
+
+        if (seg == trunkSegs) {
+            curX = segX; curY = segY; curZ = segZ;
+        }
+    }
+
+    for (int seg = 0; seg < trunkSegs; ++seg) {
+        for (int s = 0; s < sectors; ++s) {
+            unsigned int cur = seg * (sectors + 1) + s;
+            unsigned int next = cur + (sectors + 1);
+
+            indices.push_back(cur);
+            indices.push_back(next);
+            indices.push_back(cur + 1);
+
+            indices.push_back(cur + 1);
+            indices.push_back(next);
+            indices.push_back(next + 1);
+        }
+    }
+
+    // 2. Tropical Palm Fronds (12 Drooping Arching Leaves)
+    const int numFronds = 12;
+    const int frondSteps = 8;
+    float frondLen = 4.2f;
+    glm::vec3 frondCol(0.16f, 0.42f, 0.14f);
+
+    for (int f = 0; f < numFronds; ++f) {
+        float fAngle = 2.0f * (float)M_PI * (float)f / (float)numFronds;
+        float fTilt = 0.35f + 0.30f * std::sin((float)f * 2.5f);
+
+        for (int step = 0; step < frondSteps; ++step) {
+            float t0 = (float)step / (float)frondSteps;
+            float t1 = (float)(step + 1) / (float)frondSteps;
+
+            float r0 = t0 * frondLen;
+            float r1 = t1 * frondLen;
+            float y0 = curY - t0 * t0 * 1.8f + t0 * 0.4f;
+            float y1 = curY - t1 * t1 * 1.8f + t1 * 0.4f;
+
+            float w0 = (1.0f - t0) * 0.55f;
+            float w1 = (1.0f - t1) * 0.55f;
+
+            glm::vec3 dir(std::cos(fAngle), 0.0f, std::sin(fAngle));
+            glm::vec3 side(-dir.z, 0.0f, dir.x);
+            glm::vec3 norm(0.0f, 1.0f, 0.0f);
+
+            glm::vec3 p0L = glm::vec3(curX, y0, curZ) + dir * r0 - side * w0;
+            glm::vec3 p0R = glm::vec3(curX, y0, curZ) + dir * r0 + side * w0;
+            glm::vec3 p1L = glm::vec3(curX, y1, curZ) + dir * r1 - side * w1;
+            glm::vec3 p1R = glm::vec3(curX, y1, curZ) + dir * r1 + side * w1;
+
+            glm::vec3 stepCol = frondCol * (0.85f + 0.15f * (1.0f - t0));
+
+            unsigned int b = (unsigned int)vertices.size();
+            vertices.push_back({p0L, norm, stepCol, {0, t0}});
+            vertices.push_back({p0R, norm, stepCol, {1, t0}});
+            vertices.push_back({p1R, norm, stepCol, {1, t1}});
+            vertices.push_back({p1L, norm, stepCol, {0, t1}});
+
+            indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+            indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createReedCluster(int bladeCount, float height) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    glm::vec3 stalkBase(0.20f, 0.42f, 0.14f);
+    glm::vec3 stalkTip(0.58f, 0.52f, 0.22f); // Golden seed tip
+
+    for (int i = 0; i < bladeCount; ++i) {
+        float angle = (float)i * (2.0f * (float)M_PI / (float)bladeCount);
+        float rOff = 0.15f + 0.25f * ((float)(i % 5) / 5.0f);
+        float bHeight = height * (0.75f + 0.40f * std::sin((float)i * 1.7f));
+        float leanX = std::cos(angle) * (0.35f + 0.25f * std::sin((float)i * 2.3f));
+        float leanZ = std::sin(angle) * (0.35f + 0.25f * std::cos((float)i * 1.9f));
+
+        glm::vec3 p0(std::cos(angle) * rOff, 0.0f, std::sin(angle) * rOff);
+        glm::vec3 pMid(p0.x + leanX * 0.4f, bHeight * 0.55f, p0.z + leanZ * 0.4f);
+        glm::vec3 pTop(p0.x + leanX, bHeight, p0.z + leanZ);
+
+        glm::vec3 side(-std::sin(angle) * 0.06f, 0.0f, std::cos(angle) * 0.06f);
+        glm::vec3 norm(std::cos(angle), 0.2f, std::sin(angle));
+
+        unsigned int b = (unsigned int)vertices.size();
+        vertices.push_back({p0 - side, norm, stalkBase, {0, 0}});
+        vertices.push_back({p0 + side, norm, stalkBase, {1, 0}});
+        vertices.push_back({pMid + side * 0.7f, norm, stalkBase * 1.15f, {1, 0.5f}});
+        vertices.push_back({pMid - side * 0.7f, norm, stalkBase * 1.15f, {0, 0.5f}});
+        vertices.push_back({pTop, norm, stalkTip, {0.5f, 1.0f}});
+
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+        indices.push_back(b+3); indices.push_back(b+2); indices.push_back(b+4);
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createWetlandWater(float width, float depth) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const int subsX = 32;
+    const int subsZ = 32;
+    float halfW = width * 0.5f;
+    float halfD = depth * 0.5f;
+
+    glm::vec3 waterDeep(0.08f, 0.16f, 0.22f); // Dark reflective wetland marsh water
+    glm::vec3 norm(0.0f, 1.0f, 0.0f);
+
+    for (int z = 0; z <= subsZ; ++z) {
+        float fz = (float)z / (float)subsZ;
+        float pz = -halfD + fz * depth;
+        for (int x = 0; x <= subsX; ++x) {
+            float fx = (float)x / (float)subsX;
+            float px = -halfW + fx * width;
+
+            // Subtle rippling surface
+            float py = -0.06f + 0.015f * std::sin(px * 0.8f + pz * 0.6f);
+            vertices.push_back({{px, py, pz}, norm, waterDeep, {fx, fz}});
+        }
+    }
+
+    for (int z = 0; z < subsZ; ++z) {
+        for (int x = 0; x < subsX; ++x) {
+            unsigned int cur = z * (subsX + 1) + x;
+            unsigned int next = cur + (subsX + 1);
+
+            indices.push_back(cur);
+            indices.push_back(next);
+            indices.push_back(cur + 1);
+
+            indices.push_back(cur + 1);
+            indices.push_back(next);
+            indices.push_back(next + 1);
+        }
+    }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createSkyBackdrop(float radius, float height) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    // Panoramic Horizon Backdrop matching the dramatic sunset break in photograph:
+    // Top: Moody overcast dark slate indigo
+    // Middle: Intense golden-orange sunset glow
+    // Low: Warm peach-gold horizon mist
+    const int sectors = 48;
+    const int tiers = 5;
+
+    glm::vec3 skyColors[5] = {
+        glm::vec3(0.92f, 0.58f, 0.28f), // Tier 0 (Ground horizon): Warm peach-gold mist
+        glm::vec3(0.98f, 0.74f, 0.22f), // Tier 1 (Low sky): Radiant golden-orange sunset break
+        glm::vec3(0.85f, 0.52f, 0.24f), // Tier 2 (Under-cloud glow): Amber gold fading
+        glm::vec3(0.24f, 0.28f, 0.32f), // Tier 3 (Cloud base): Dark charcoal storm fringe
+        glm::vec3(0.08f, 0.14f, 0.22f)  // Tier 4 (Upper sky): Deep moody overcast slate navy
+    };
+
+    float tierHeights[5] = {0.0f, height * 0.14f, height * 0.32f, height * 0.55f, height};
+
+    for (int t = 0; t < tiers; ++t) {
+        float y = tierHeights[t];
+        glm::vec3 col = skyColors[t];
+
+        for (int s = 0; s <= sectors; ++s) {
+            float angle = (float)s / (float)sectors * 2.0f * (float)M_PI;
+            float x = std::cos(angle) * radius;
+            float z = std::sin(angle) * radius;
+
+            glm::vec3 norm = -glm::normalize(glm::vec3(x, 0.0f, z)); // Inward pointing
+            vertices.push_back({{x, y, z}, norm, col, {(float)s / sectors, (float)t / (tiers - 1)}});
+        }
+    }
+
+    for (int t = 0; t < tiers - 1; ++t) {
+        for (int s = 0; s < sectors; ++s) {
+            unsigned int cur = t * (sectors + 1) + s;
+            unsigned int next = cur + (sectors + 1);
+
+            indices.push_back(cur);
+            indices.push_back(cur + 1);
+            indices.push_back(next);
+
+            indices.push_back(cur + 1);
+            indices.push_back(next + 1);
+            indices.push_back(next);
+        }
     }
 
     return Mesh(vertices, indices);

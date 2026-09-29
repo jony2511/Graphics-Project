@@ -44,6 +44,8 @@ uniform vec3 uDirLightColor;
 // 2. Two Area Lights (Sky Fill + Ground Meadow Bounce)
 uniform vec3 uAmbientColor;
 uniform vec3 uGroundBounceColor;
+uniform vec3 uSkyColor;
+uniform float uFogDensity;
 
 // 3. Point Light (Burner Flame inside Balloon)
 uniform vec3 uPointLightPos;
@@ -115,6 +117,15 @@ void main() {
     vec3 spotSpecular = uSpecularStrength * spotSpec * uSpotLightColor * spotAtten * spotCone * uSpotLightIntensity;
 
     vec3 result = ambient + dirDiffuse + dirSpecular + pointDiffuse + pointSpecular + spotDiffuse + spotSpecular;
+
+    // --- Realistic Atmospheric Distance Fog & Horizon Haze ---
+    float dist = length(uViewPos - FragPos);
+    float fogStart = 28.0;
+    float fogEnd = 210.0;
+    float fogFactor = clamp((dist - fogStart) / (fogEnd - fogStart), 0.0, 0.82);
+    vec3 fogColor = mix(uSkyColor * 1.05, uDirLightColor * 0.88, 0.32);
+    result = mix(result, fogColor, fogFactor * uFogDensity);
+
     FragColor = vec4(result, uAlpha);
 }
 )";
