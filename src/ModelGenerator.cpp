@@ -1023,3 +1023,59 @@ Mesh ModelGenerator::createBirdWing(bool isLeft) {
     return Mesh(vertices, indices);
 }
 
+Mesh ModelGenerator::createShadowDisc(float radius, int sectors) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    glm::vec3 shadowCol(0.06f, 0.09f, 0.05f); // Deep meadow shadow tone
+    glm::vec3 norm(0.0f, 1.0f, 0.0f);
+
+    // Center vertex
+    vertices.push_back({{0.0f, 0.0f, 0.0f}, norm, shadowCol, {0.5f, 0.5f}});
+
+    // Inner ring (70% radius) for dense core
+    float innerR = radius * 0.70f;
+    for (int i = 0; i < sectors; ++i) {
+        float angle = 2.0f * (float)M_PI * (float)i / (float)sectors;
+        float x = std::cos(angle) * innerR;
+        float z = std::sin(angle) * innerR;
+        vertices.push_back({{x, 0.0f, z}, norm, shadowCol * 0.9f, {(x / radius) * 0.5f + 0.5f, (z / radius) * 0.5f + 0.5f}});
+    }
+
+    // Outer ring (full radius) for soft feathered boundary
+    for (int i = 0; i < sectors; ++i) {
+        float angle = 2.0f * (float)M_PI * (float)i / (float)sectors;
+        float x = std::cos(angle) * radius;
+        float z = std::sin(angle) * radius;
+        vertices.push_back({{x, 0.0f, z}, norm, shadowCol * 0.4f, {(x / radius) * 0.5f + 0.5f, (z / radius) * 0.5f + 0.5f}});
+    }
+
+    // Indices for center to inner ring
+    for (int i = 0; i < sectors; ++i) {
+        int next = (i + 1) % sectors;
+        indices.push_back(0);
+        indices.push_back(1 + i);
+        indices.push_back(1 + next);
+    }
+
+    // Indices for inner ring to outer ring
+    int outerOffset = 1 + sectors;
+    for (int i = 0; i < sectors; ++i) {
+        int next = (i + 1) % sectors;
+        unsigned int inCur = 1 + i;
+        unsigned int inNext = 1 + next;
+        unsigned int outCur = outerOffset + i;
+        unsigned int outNext = outerOffset + next;
+
+        indices.push_back(inCur);
+        indices.push_back(outCur);
+        indices.push_back(outNext);
+
+        indices.push_back(inCur);
+        indices.push_back(outNext);
+        indices.push_back(inNext);
+    }
+
+    return Mesh(vertices, indices);
+}
+

@@ -30,6 +30,7 @@ public:
     static Mesh createCloudCluster();
     static Mesh createBirdBody();
     static Mesh createBirdWing(bool isLeft);
+    static Mesh createShadowDisc(float radius, int sectors);
 };
 
 #endif // MODEL_GENERATOR_H
