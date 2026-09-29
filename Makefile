@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Iinclude
 LDFLAGS = -Llib -lglfw3 -lopengl32 -lgdi32
 
-SRC = src/main.cpp src/glad.c
+SRC = $(wildcard src/*.cpp) src/glad.c
 TARGET = main.exe
 
 all: $(TARGET)
