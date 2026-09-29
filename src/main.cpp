@@ -8,6 +8,7 @@
 #include "ModelGenerator.h"
 #include "Shader.h"
 #include "ShaderSources.h"
+#include "HUD.h"
 
 #include <iostream>
 #include <vector>
@@ -310,7 +311,7 @@ int main() {
     glfwWindowHint(GLFW_SAMPLES, 4);
 
     // 2. Create Window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Hot Air Balloon 3D - Phase 5: Dynamic Physics, Aerodynamics & Life", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Hot Air Balloon 3D - Floating Sky Scene", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -332,17 +333,16 @@ int main() {
     }
 
     std::cout << "========================================================\n";
-    std::cout << "  Hot Air Balloon 3D: Phase 5 Operational\n";
+    std::cout << "  Hot Air Balloon 3D: Phase 6 Fully Operational\n";
     std::cout << "  OpenGL Version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << "\n";
     std::cout << "  Renderer:       " << glGetString(GL_RENDERER) << "\n";
     std::cout << "========================================================\n";
-    std::cout << "Phase 5 Physics & Dynamic Features Active:\n";
-    std::cout << "  * Aerodynamic Balloon Ascent & Horizontal Wind Drift Physics\n";
-    std::cout << "  * Damped Multi-Axis Harmonic Basket Pendulum Sway\n";
-    std::cout << "  * Wind Vector Engine: Wind-responsive Windsock, Clouds & Windmill\n";
-    std::cout << "  * Flocking Birds with Dynamic Banking & Hinged Wing-Flapping\n";
-    std::cout << "  * Independent Multi-Balloon Trajectory Hierarchies\n";
-    std::cout << "  * Controls: [F] Burner Toggle | [L] Day/Night | [1-4] Cameras\n";
+    std::cout << "Phase 6 Features Active:\n";
+    std::cout << "  * 2D Orthographic Avionics Dashboard HUD Overlay\n";
+    std::cout << "  * Live Flight Telemetry: Altitude Bar & Vertical Speed Indicator (VSI)\n";
+    std::cout << "  * Wind & Heading Instrument: 360-deg Compass Rose & Velocity Meter\n";
+    std::cout << "  * Burner State Indicator, Camera Pill & Lighting Mode Badge\n";
+    std::cout << "  * Quick-Reference Controls Banner & Live Dynamic FPS Readout\n";
     std::cout << "========================================================\n";
 
     glEnable(GL_DEPTH_TEST);
@@ -351,8 +351,10 @@ int main() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // 4. Build and Compile Shaders
+    // 4. Build and Compile Shaders & HUD System
     Shader sceneShader(SCENE_VERTEX_SHADER, SCENE_FRAGMENT_SHADER);
+    HUD hud;
+    hud.init();
 
     // 5. Generate Procedural 3D Meshes
     // A. Rural Terrain & Dirt Road
@@ -482,6 +484,7 @@ int main() {
     // Frame counter
     double lastTitleUpdate = 0.0;
     int frameCount = 0;
+    float currentFps = 60.0f;
 
     // 6. Main Render Loop
     while (!glfwWindowShouldClose(window)) {
@@ -572,6 +575,7 @@ int main() {
         frameCount++;
         if (currentFrame - lastTitleUpdate >= 0.25) {
             float fps = frameCount / static_cast<float>(currentFrame - lastTitleUpdate);
+            currentFps = fps;
             std::ostringstream ss;
             ss << "Hot Air Balloon 3D | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
                << " | Wind: " << static_cast<int>(windSpeed) << " km/h (" << static_cast<int>(windHeadingDeg) << " deg)"
@@ -1065,7 +1069,23 @@ int main() {
         }
 
         // ==========================================
-        // 9. Swap Buffers & Poll Events
+        // 9. Render 2D Orthographic Avionics HUD Overlay
+        // ==========================================
+        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+        hud.renderDashboard(
+            fbWidth, fbHeight,
+            balloonPosition.y,
+            balloonVelocity.y,
+            windSpeed,
+            windHeadingDeg,
+            burnerActive,
+            static_cast<int>(camera.mode),
+            static_cast<int>(currentLightMode),
+            currentFps
+        );
+
+        // ==========================================
+        // 10. Swap Buffers & Poll Events
         // ==========================================
         glfwSwapBuffers(window);
         glfwPollEvents();

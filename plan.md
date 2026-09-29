@@ -236,7 +236,7 @@ gantt
 - Flocking birds with hierarchical hinged wing-flapping animation.
 - Windmill rotating sails.
 
-### **Phase 6: Orthographic Dashboard HUD, Controls & Quality Polish**
+### **Phase 6: Orthographic Dashboard HUD, Controls & Quality Polish** *(Completed)*
 - Build 2D Orthographic overlay rendering pipeline.
 - Render glassmorphic instrument panels, compass gauge, altitude display, burner indicator, and controls overlay.
 - Wire up all keyboard controls (`1-4`, `Arrow keys`, `Space`, `L`, `F`, `R`, `Esc`).
