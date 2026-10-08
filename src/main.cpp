@@ -42,6 +42,7 @@ float lastFrame = 0.0f;
 bool isPaused = false;
 bool burnerActive = true;
 bool showHud = false; // Set to false per user request: "scene er modde thaka lekha gula bad daw"
+bool isRayTracingActive = false;
 float simulationTime = 0.0f;
 
 // Physical Balloon Flight Parameters
@@ -299,6 +300,18 @@ void processInput(GLFWwindow* window) {
         shadingKeyPressed = false;
     }
 
+    // T: Toggle Real-Time Ray Tracing vs OpenGL Hardware Rasterization
+    static bool tPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !tPressed) {
+        isRayTracingActive = !isRayTracingActive;
+        std::cout << "[RENDER PIPELINE] Switched to "
+                  << (isRayTracingActive ? "REAL-TIME RAY TRACING (Analytical Ray Casting, Dynamic Pond Reflections & Ray Shadows)" : "OPENGL HARDWARE RASTERIZATION (Phong & Gouraud Pipeline)")
+                  << "\n";
+        tPressed = true;
+    } else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE) {
+        tPressed = false;
+    }
+
     // R: Reset Scene
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && !rPressed) {
         balloonAltitude = 4.2f;
@@ -453,6 +466,7 @@ int main() {
     std::cout << "  * 360 Look Controls        : Click & Drag (Left / Right Mouse) or Q / E / Z / C (All Modes)\n";
     std::cout << "  * L                        : Cycle Day / Sunset / Night / Dawn Lighting\n";
     std::cout << "  * M / P                    : Toggle Shading Model (Phong [Per-Fragment] vs Gouraud [Per-Vertex])\n";
+    std::cout << "  * T                        : Toggle Real-Time Ray Tracing (Ray Shadows & Water Reflections)\n";
     std::cout << "  * R                        : Reset Balloon to Launch Position\n";
     std::cout << "  * H                        : Toggle HUD Dashboard\n";
     std::cout << "========================================================\n";
@@ -465,8 +479,29 @@ int main() {
 
     // 4. Build and Compile Shaders & HUD System
     Shader sceneShader(SCENE_VERTEX_SHADER, SCENE_FRAGMENT_SHADER);
+    Shader rayTracingShader(RAYTRACING_VERTEX_SHADER, RAYTRACING_FRAGMENT_SHADER);
     HUD hud;
     hud.init();
+
+    // Full-screen Quad for Real-Time Ray Tracing
+    float screenQuadVertices[] = {
+        -1.0f,  1.0f,
+        -1.0f, -1.0f,
+         1.0f, -1.0f,
+
+        -1.0f,  1.0f,
+         1.0f, -1.0f,
+         1.0f,  1.0f
+    };
+    unsigned int screenQuadVAO, screenQuadVBO;
+    glGenVertexArrays(1, &screenQuadVAO);
+    glGenBuffers(1, &screenQuadVBO);
+    glBindVertexArray(screenQuadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, screenQuadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(screenQuadVertices), screenQuadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glBindVertexArray(0);
 
     // 5. Generate Procedural 3D Meshes
     // A. Rural Terrain & Dirt Road
@@ -900,6 +935,7 @@ int main() {
             currentFps = fps;
             std::ostringstream ss;
             ss << "Hot Air Balloon 3D | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
+               << " | Pipeline: [" << (isRayTracingActive ? "RAY TRACED (T)" : "RASTER (T)") << "]"
                << " | Shading: [" << (currentShadingMode == SHADING_PHONG ? "PHONG (M/P)" : "GOURAUD (M/P)") << "]"
                << " | Steer: [Arrows]"
                << " | Burner: [" << (burnerActive ? "FIRE (F)" : "OFF (F)") << "]"
@@ -916,53 +952,99 @@ int main() {
         glClearColor(curSkyColor.r, curSkyColor.g, curSkyColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        sceneShader.use();
-
         float aspectRatio = static_cast<float>(SCR_WIDTH) / static_cast<float>(SCR_HEIGHT);
         int fbWidth, fbHeight;
         glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
         if (fbHeight > 0) aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
 
-        glm::mat4 projection = camera.getProjectionMatrix(aspectRatio);
-        glm::mat4 view = camera.getViewMatrix();
-        sceneShader.setMat4("uProjection", projection);
-        sceneShader.setMat4("uView", view);
-        sceneShader.setVec3("uViewPos", camera.position);
-        sceneShader.setInt("uShadingModel", static_cast<int>(currentShadingMode));
-
-        // Set Light Uniforms
-        sceneShader.setVec3("uDirLightDir", curSunDir);
-        sceneShader.setVec3("uDirLightColor", curSunColor);
-        sceneShader.setVec3("uAmbientColor", curAmbientColor);
-        sceneShader.setVec3("uGroundBounceColor", curGroundBounce);
-
-        // Point Light (Burner Flame inside balloon)
         glm::vec3 burnerPos = balloonPosition + glm::vec3(0.0f, 1.3f, 0.0f);
         float flameFlicker = 1.0f + 0.24f * std::sin(simulationTime * 22.0f) * std::cos(simulationTime * 31.0f);
-        sceneShader.setVec3("uPointLightPos", burnerPos);
-        sceneShader.setVec3("uPointLightColor", glm::vec3(1.0f, 0.62f, 0.12f));
-        sceneShader.setFloat("uPointLightIntensity", burnerActive ? (2.4f * flameFlicker) : 0.2f);
 
-        // Spotlight (Launch-Pad Mast Night Light)
         glm::vec3 mastPos(9.8f, 0.0f, -9.8f);
         glm::vec3 spotLightPos = mastPos + glm::vec3(-0.35f, 8.2f, 0.35f);
         glm::vec3 spotLightDir = glm::normalize(glm::vec3(-0.75f, -1.0f, 0.75f));
-        sceneShader.setVec3("uSpotLightPos", spotLightPos);
-        sceneShader.setVec3("uSpotLightDir", spotLightDir);
-        sceneShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
-        sceneShader.setFloat("uSpotLightCutOff", std::cos(glm::radians(34.0f)));
-        sceneShader.setFloat("uSpotLightOuterCutOff", std::cos(glm::radians(48.0f)));
-        sceneShader.setFloat("uSpotLightIntensity", curSpotIntensity);
 
-        sceneShader.setVec3("uSkyColor", curSkyColor);
-        sceneShader.setFloat("uFogDensity", 1.0f);
+        if (isRayTracingActive) {
+            // ==========================================
+            // REAL-TIME SCREEN-SPACE RAY TRACING PIPELINE
+            // ==========================================
+            glDisable(GL_DEPTH_TEST);
+            rayTracingShader.use();
 
-        sceneShader.setFloat("uSpecularStrength", 0.40f);
-        sceneShader.setFloat("uShininess", 32.0f);
-        sceneShader.setFloat("uAlpha", 1.0f);
-        sceneShader.setFloat("uEmissive", 0.0f);
+            rayTracingShader.setVec3("uCamPos", camera.position);
+            rayTracingShader.setVec3("uCamFront", camera.front);
+            rayTracingShader.setVec3("uCamRight", camera.right);
+            rayTracingShader.setVec3("uCamUp", camera.up);
+            rayTracingShader.setFloat("uTanHalfFov", std::tan(glm::radians(camera.fov * 0.5f)));
+            rayTracingShader.setFloat("uAspectRatio", aspectRatio);
+            rayTracingShader.setFloat("uTime", simulationTime);
 
-        glm::mat4 model(1.0f);
+            rayTracingShader.setVec3("uBalloonPos", balloonPosition);
+            rayTracingShader.setInt("uBurnerActive", burnerActive ? 1 : 0);
+            rayTracingShader.setFloat("uFlameFlicker", flameFlicker);
+
+            rayTracingShader.setVec3("uBg1Pos", bg1Pos);
+            rayTracingShader.setVec3("uBg2Pos", bg2Pos);
+            rayTracingShader.setVec3("uBg3Pos", bg3Pos);
+
+            rayTracingShader.setVec3("uDirLightDir", curSunDir);
+            rayTracingShader.setVec3("uDirLightColor", curSunColor);
+            rayTracingShader.setVec3("uAmbientColor", curAmbientColor);
+            rayTracingShader.setVec3("uGroundBounceColor", curGroundBounce);
+            rayTracingShader.setVec3("uSkyColor", curSkyColor);
+
+            rayTracingShader.setVec3("uSpotLightPos", spotLightPos);
+            rayTracingShader.setVec3("uSpotLightDir", spotLightDir);
+            rayTracingShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
+            rayTracingShader.setFloat("uSpotLightIntensity", curSpotIntensity);
+            rayTracingShader.setFloat("uFogDensity", 1.0f);
+
+            glBindVertexArray(screenQuadVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glBindVertexArray(0);
+
+            glEnable(GL_DEPTH_TEST);
+        } else {
+            // ==========================================
+            // OPENGL HARDWARE RASTERIZATION PIPELINE
+            // ==========================================
+            sceneShader.use();
+
+            glm::mat4 projection = camera.getProjectionMatrix(aspectRatio);
+            glm::mat4 view = camera.getViewMatrix();
+            sceneShader.setMat4("uProjection", projection);
+            sceneShader.setMat4("uView", view);
+            sceneShader.setVec3("uViewPos", camera.position);
+            sceneShader.setInt("uShadingModel", static_cast<int>(currentShadingMode));
+
+            // Set Light Uniforms
+            sceneShader.setVec3("uDirLightDir", curSunDir);
+            sceneShader.setVec3("uDirLightColor", curSunColor);
+            sceneShader.setVec3("uAmbientColor", curAmbientColor);
+            sceneShader.setVec3("uGroundBounceColor", curGroundBounce);
+
+            // Point Light (Burner Flame inside balloon)
+            sceneShader.setVec3("uPointLightPos", burnerPos);
+            sceneShader.setVec3("uPointLightColor", glm::vec3(1.0f, 0.62f, 0.12f));
+            sceneShader.setFloat("uPointLightIntensity", burnerActive ? (2.4f * flameFlicker) : 0.2f);
+
+            // Spotlight (Launch-Pad Mast Night Light)
+            sceneShader.setVec3("uSpotLightPos", spotLightPos);
+            sceneShader.setVec3("uSpotLightDir", spotLightDir);
+            sceneShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
+            sceneShader.setFloat("uSpotLightCutOff", std::cos(glm::radians(34.0f)));
+            sceneShader.setFloat("uSpotLightOuterCutOff", std::cos(glm::radians(48.0f)));
+            sceneShader.setFloat("uSpotLightIntensity", curSpotIntensity);
+
+            sceneShader.setVec3("uSkyColor", curSkyColor);
+            sceneShader.setFloat("uFogDensity", 1.0f);
+
+            sceneShader.setFloat("uSpecularStrength", 0.40f);
+            sceneShader.setFloat("uShininess", 32.0f);
+            sceneShader.setFloat("uAlpha", 1.0f);
+            sceneShader.setFloat("uEmissive", 0.0f);
+
+            glm::mat4 model(1.0f);
 
         // ==========================================
         // 1. Draw Celestial Sun / Moon Disc
@@ -1329,6 +1411,7 @@ int main() {
 
         // Render Main Hero Hot Air Balloon (Full physics & user burner control)
         drawHotAirBalloon(balloonPosition, 1.0f, basketSwayRoll, basketSwayPitch, rainbowEnvelope, burnerActive, 1.0f);
+        }
 
         // ==========================================
         // 9. Render 2D Orthographic Avionics HUD Overlay (Disabled by default per user request)
