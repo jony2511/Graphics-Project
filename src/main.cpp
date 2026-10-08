@@ -157,10 +157,80 @@ struct Bird {
     float flapPhase;
 };
 
+// G-Buffer for Real-Time Screen-Space Ray Tracing (SSR + RTAO + Soft Shadows)
+unsigned int gBufferFBO = 0;
+unsigned int gColor = 0, gNormal = 0, gPosition = 0;
+unsigned int gDepthRBO = 0;
+int gBufferWidth = 0, gBufferHeight = 0;
+
+void initGBuffer(int width, int height) {
+    if (width <= 0 || height <= 0) return;
+    if (gBufferFBO != 0 && width == gBufferWidth && height == gBufferHeight) return;
+
+    if (gBufferFBO != 0) {
+        glDeleteFramebuffers(1, &gBufferFBO);
+        glDeleteTextures(1, &gColor);
+        glDeleteTextures(1, &gNormal);
+        glDeleteTextures(1, &gPosition);
+        glDeleteRenderbuffers(1, &gDepthRBO);
+    }
+
+    gBufferWidth = width;
+    gBufferHeight = height;
+
+    glGenFramebuffers(1, &gBufferFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+
+    // 0: Rendered Scene Color / Albedo
+    glGenTextures(1, &gColor);
+    glBindTexture(GL_TEXTURE_2D, gColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gColor, 0);
+
+    // 1: Normal (RGB) + Reflectivity (A)
+    glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+
+    // 2: World Position (RGB) + Distance (A)
+    glGenTextures(1, &gPosition);
+    glBindTexture(GL_TEXTURE_2D, gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gPosition, 0);
+
+    // Depth Renderbuffer
+    glGenRenderbuffers(1, &gDepthRBO);
+    glBindRenderbuffer(GL_RENDERBUFFER, gDepthRBO);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gDepthRBO);
+
+    unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "[ERROR] G-Buffer Framebuffer is incomplete!\n";
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 // Callbacks
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     (void)window;
     glViewport(0, 0, width, height);
+    initGBuffer(width, height);
 }
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
@@ -470,6 +540,8 @@ int main() {
     std::cout << "  * R                        : Reset Balloon to Launch Position\n";
     std::cout << "  * H                        : Toggle HUD Dashboard\n";
     std::cout << "========================================================\n";
+
+    initGBuffer(SCR_WIDTH, SCR_HEIGHT);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -948,103 +1020,68 @@ int main() {
             lastTitleUpdate = currentFrame;
         }
 
+        int fbWidth, fbHeight;
+        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+        float aspectRatio = (fbHeight > 0) ? (static_cast<float>(fbWidth) / static_cast<float>(fbHeight)) : (static_cast<float>(SCR_WIDTH) / static_cast<float>(SCR_HEIGHT));
+
+        // Ensure G-Buffer dimensions match current window framebuffer
+        initGBuffer(fbWidth, fbHeight);
+
+        // If Ray Tracing mode is active, render scene into G-Buffer FBO; else render directly to backbuffer
+        if (isRayTracingActive) {
+            glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+        } else {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+        glViewport(0, 0, fbWidth, fbHeight);
+
         // Dynamic Sky Color Clear
         glClearColor(curSkyColor.r, curSkyColor.g, curSkyColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        float aspectRatio = static_cast<float>(SCR_WIDTH) / static_cast<float>(SCR_HEIGHT);
-        int fbWidth, fbHeight;
-        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-        if (fbHeight > 0) aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
+        sceneShader.use();
+        sceneShader.setFloat("uReflectivity", 0.04f);
 
+        glm::mat4 projection = camera.getProjectionMatrix(aspectRatio);
+        glm::mat4 view = camera.getViewMatrix();
+        sceneShader.setMat4("uProjection", projection);
+        sceneShader.setMat4("uView", view);
+        sceneShader.setVec3("uViewPos", camera.position);
+        sceneShader.setInt("uShadingModel", static_cast<int>(currentShadingMode));
+
+        // Set Light Uniforms
+        sceneShader.setVec3("uDirLightDir", curSunDir);
+        sceneShader.setVec3("uDirLightColor", curSunColor);
+        sceneShader.setVec3("uAmbientColor", curAmbientColor);
+        sceneShader.setVec3("uGroundBounceColor", curGroundBounce);
+
+        // Point Light (Burner Flame inside balloon)
         glm::vec3 burnerPos = balloonPosition + glm::vec3(0.0f, 1.3f, 0.0f);
         float flameFlicker = 1.0f + 0.24f * std::sin(simulationTime * 22.0f) * std::cos(simulationTime * 31.0f);
+        sceneShader.setVec3("uPointLightPos", burnerPos);
+        sceneShader.setVec3("uPointLightColor", glm::vec3(1.0f, 0.62f, 0.12f));
+        sceneShader.setFloat("uPointLightIntensity", burnerActive ? (2.4f * flameFlicker) : 0.2f);
 
+        // Spotlight (Launch-Pad Mast Night Light)
         glm::vec3 mastPos(9.8f, 0.0f, -9.8f);
         glm::vec3 spotLightPos = mastPos + glm::vec3(-0.35f, 8.2f, 0.35f);
         glm::vec3 spotLightDir = glm::normalize(glm::vec3(-0.75f, -1.0f, 0.75f));
+        sceneShader.setVec3("uSpotLightPos", spotLightPos);
+        sceneShader.setVec3("uSpotLightDir", spotLightDir);
+        sceneShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
+        sceneShader.setFloat("uSpotLightCutOff", std::cos(glm::radians(34.0f)));
+        sceneShader.setFloat("uSpotLightOuterCutOff", std::cos(glm::radians(48.0f)));
+        sceneShader.setFloat("uSpotLightIntensity", curSpotIntensity);
 
-        if (isRayTracingActive) {
-            // ==========================================
-            // REAL-TIME SCREEN-SPACE RAY TRACING PIPELINE
-            // ==========================================
-            glDisable(GL_DEPTH_TEST);
-            rayTracingShader.use();
+        sceneShader.setVec3("uSkyColor", curSkyColor);
+        sceneShader.setFloat("uFogDensity", 1.0f);
 
-            rayTracingShader.setVec3("uCamPos", camera.position);
-            rayTracingShader.setVec3("uCamFront", camera.front);
-            rayTracingShader.setVec3("uCamRight", camera.right);
-            rayTracingShader.setVec3("uCamUp", camera.up);
-            rayTracingShader.setFloat("uTanHalfFov", std::tan(glm::radians(camera.fov * 0.5f)));
-            rayTracingShader.setFloat("uAspectRatio", aspectRatio);
-            rayTracingShader.setFloat("uTime", simulationTime);
+        sceneShader.setFloat("uSpecularStrength", 0.40f);
+        sceneShader.setFloat("uShininess", 32.0f);
+        sceneShader.setFloat("uAlpha", 1.0f);
+        sceneShader.setFloat("uEmissive", 0.0f);
 
-            rayTracingShader.setVec3("uBalloonPos", balloonPosition);
-            rayTracingShader.setInt("uBurnerActive", burnerActive ? 1 : 0);
-            rayTracingShader.setFloat("uFlameFlicker", flameFlicker);
-
-            rayTracingShader.setVec3("uBg1Pos", bg1Pos);
-            rayTracingShader.setVec3("uBg2Pos", bg2Pos);
-            rayTracingShader.setVec3("uBg3Pos", bg3Pos);
-
-            rayTracingShader.setVec3("uDirLightDir", curSunDir);
-            rayTracingShader.setVec3("uDirLightColor", curSunColor);
-            rayTracingShader.setVec3("uAmbientColor", curAmbientColor);
-            rayTracingShader.setVec3("uGroundBounceColor", curGroundBounce);
-            rayTracingShader.setVec3("uSkyColor", curSkyColor);
-
-            rayTracingShader.setVec3("uSpotLightPos", spotLightPos);
-            rayTracingShader.setVec3("uSpotLightDir", spotLightDir);
-            rayTracingShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
-            rayTracingShader.setFloat("uSpotLightIntensity", curSpotIntensity);
-            rayTracingShader.setFloat("uFogDensity", 1.0f);
-
-            glBindVertexArray(screenQuadVAO);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-            glBindVertexArray(0);
-
-            glEnable(GL_DEPTH_TEST);
-        } else {
-            // ==========================================
-            // OPENGL HARDWARE RASTERIZATION PIPELINE
-            // ==========================================
-            sceneShader.use();
-
-            glm::mat4 projection = camera.getProjectionMatrix(aspectRatio);
-            glm::mat4 view = camera.getViewMatrix();
-            sceneShader.setMat4("uProjection", projection);
-            sceneShader.setMat4("uView", view);
-            sceneShader.setVec3("uViewPos", camera.position);
-            sceneShader.setInt("uShadingModel", static_cast<int>(currentShadingMode));
-
-            // Set Light Uniforms
-            sceneShader.setVec3("uDirLightDir", curSunDir);
-            sceneShader.setVec3("uDirLightColor", curSunColor);
-            sceneShader.setVec3("uAmbientColor", curAmbientColor);
-            sceneShader.setVec3("uGroundBounceColor", curGroundBounce);
-
-            // Point Light (Burner Flame inside balloon)
-            sceneShader.setVec3("uPointLightPos", burnerPos);
-            sceneShader.setVec3("uPointLightColor", glm::vec3(1.0f, 0.62f, 0.12f));
-            sceneShader.setFloat("uPointLightIntensity", burnerActive ? (2.4f * flameFlicker) : 0.2f);
-
-            // Spotlight (Launch-Pad Mast Night Light)
-            sceneShader.setVec3("uSpotLightPos", spotLightPos);
-            sceneShader.setVec3("uSpotLightDir", spotLightDir);
-            sceneShader.setVec3("uSpotLightColor", glm::vec3(1.0f, 0.96f, 0.82f));
-            sceneShader.setFloat("uSpotLightCutOff", std::cos(glm::radians(34.0f)));
-            sceneShader.setFloat("uSpotLightOuterCutOff", std::cos(glm::radians(48.0f)));
-            sceneShader.setFloat("uSpotLightIntensity", curSpotIntensity);
-
-            sceneShader.setVec3("uSkyColor", curSkyColor);
-            sceneShader.setFloat("uFogDensity", 1.0f);
-
-            sceneShader.setFloat("uSpecularStrength", 0.40f);
-            sceneShader.setFloat("uShininess", 32.0f);
-            sceneShader.setFloat("uAlpha", 1.0f);
-            sceneShader.setFloat("uEmissive", 0.0f);
-
-            glm::mat4 model(1.0f);
+        glm::mat4 model(1.0f);
 
         // ==========================================
         // 1. Draw Celestial Sun / Moon Disc
@@ -1243,7 +1280,9 @@ int main() {
         sceneShader.setMat4("uModel", model);
         sceneShader.setFloat("uSpecularStrength", 0.85f);
         sceneShader.setFloat("uShininess", 64.0f);
+        sceneShader.setFloat("uReflectivity", 0.85f);
         wetlandWater.draw();
+        sceneShader.setFloat("uReflectivity", 0.04f);
         sceneShader.setFloat("uSpecularStrength", 0.40f);
         sceneShader.setFloat("uShininess", 32.0f);
 
@@ -1411,6 +1450,42 @@ int main() {
 
         // Render Main Hero Hot Air Balloon (Full physics & user burner control)
         drawHotAirBalloon(balloonPosition, 1.0f, basketSwayRoll, basketSwayPitch, rainbowEnvelope, burnerActive, 1.0f);
+
+        // ==========================================
+        // 8.5. Real-Time Screen-Space Ray Tracing Pass (Key T)
+        // ==========================================
+        if (isRayTracingActive) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, fbWidth, fbHeight);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glDisable(GL_DEPTH_TEST);
+
+            rayTracingShader.use();
+            rayTracingShader.setMat4("uView", view);
+            rayTracingShader.setMat4("uProjection", projection);
+            rayTracingShader.setVec3("uCamPos", camera.position);
+            rayTracingShader.setVec3("uDirLightDir", curSunDir);
+            rayTracingShader.setVec3("uDirLightColor", curSunColor);
+            rayTracingShader.setVec3("uSkyColor", curSkyColor);
+            rayTracingShader.setFloat("uTime", simulationTime);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gColor);
+            rayTracingShader.setInt("uGColor", 0);
+
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            rayTracingShader.setInt("uGNormal", 1);
+
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            rayTracingShader.setInt("uGPosition", 2);
+
+            glBindVertexArray(screenQuadVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glBindVertexArray(0);
+
+            glEnable(GL_DEPTH_TEST);
         }
 
         // ==========================================
