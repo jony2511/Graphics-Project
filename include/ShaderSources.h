@@ -12,10 +12,40 @@ out vec3 FragPos;
 out vec3 Normal;
 out vec3 VertexColor;
 out vec2 TexCoords;
+out vec3 GouraudColor;
 
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
+
+uniform int uShadingModel; // 0: Phong Shading (per-fragment), 1: Gouraud Shading (per-vertex)
+uniform vec3 uViewPos;
+
+// 1. Directional Light (Sun / Moon)
+uniform vec3 uDirLightDir;
+uniform vec3 uDirLightColor;
+
+// 2. Two Area Lights (Sky Fill + Ground Meadow Bounce)
+uniform vec3 uAmbientColor;
+uniform vec3 uGroundBounceColor;
+
+// 3. Point Light (Burner Flame inside Balloon)
+uniform vec3 uPointLightPos;
+uniform vec3 uPointLightColor;
+uniform float uPointLightIntensity;
+
+// 4. Spotlight (Launch-Pad Night Light on Mast)
+uniform vec3 uSpotLightPos;
+uniform vec3 uSpotLightDir;
+uniform vec3 uSpotLightColor;
+uniform float uSpotLightCutOff;
+uniform float uSpotLightOuterCutOff;
+uniform float uSpotLightIntensity;
+
+// Material Properties
+uniform float uSpecularStrength;
+uniform float uShininess;
+uniform float uEmissive;
 
 void main() {
     FragPos = vec3(uModel * vec4(aPos, 1.0));
@@ -23,6 +53,61 @@ void main() {
     VertexColor = aColor;
     TexCoords = aTexCoords;
     gl_Position = uProjection * uView * vec4(FragPos, 1.0);
+
+    // Compute Gouraud Shading (Per-Vertex Lighting)
+    if (uShadingModel == 1) {
+        if (uEmissive > 0.0) {
+            GouraudColor = aColor;
+        } else {
+            vec3 norm = normalize(Normal);
+            vec3 viewDir = normalize(uViewPos - FragPos);
+
+            // --- Two Area Lights (Sky Fill & Ground Bounce) ---
+            float hemi = clamp(norm.y * 0.5 + 0.5, 0.0, 1.0);
+            vec3 skyFill = uAmbientColor * 1.15;
+            vec3 groundBounce = uGroundBounceColor;
+            vec3 ambient = mix(groundBounce, skyFill, hemi) * aColor;
+
+            // --- Directional Light (Sun / Moon) ---
+            vec3 dirLightVec = normalize(-uDirLightDir);
+            float dirDiff = max(dot(norm, dirLightVec), 0.0);
+            vec3 dirDiffuse = dirDiff * uDirLightColor * aColor;
+
+            vec3 dirReflect = reflect(-dirLightVec, norm);
+            float dirSpec = pow(max(dot(viewDir, dirReflect), 0.0), uShininess);
+            vec3 dirSpecular = uSpecularStrength * dirSpec * uDirLightColor;
+
+            // --- Point Light (Burner Flame) ---
+            vec3 pointLightVec = normalize(uPointLightPos - FragPos);
+            float pointDist = length(uPointLightPos - FragPos);
+            float pointAtten = 1.0 / (1.0 + 0.12 * pointDist + 0.035 * (pointDist * pointDist));
+            float pointDiff = max(dot(norm, pointLightVec), 0.0);
+            vec3 pointDiffuse = pointDiff * uPointLightColor * aColor * pointAtten * uPointLightIntensity;
+
+            vec3 pointReflect = reflect(-pointLightVec, norm);
+            float pointSpec = pow(max(dot(viewDir, pointReflect), 0.0), uShininess);
+            vec3 pointSpecular = uSpecularStrength * 0.5 * pointSpec * uPointLightColor * pointAtten * uPointLightIntensity;
+
+            // --- Spotlight (Launch-Pad Floodlight) ---
+            vec3 spotLightVec = normalize(uSpotLightPos - FragPos);
+            float spotDist = length(uSpotLightPos - FragPos);
+            float theta = dot(spotLightVec, normalize(-uSpotLightDir));
+            float epsilon = uSpotLightCutOff - uSpotLightOuterCutOff;
+            float spotCone = clamp((theta - uSpotLightOuterCutOff) / epsilon, 0.0, 1.0);
+            float spotAtten = 1.0 / (1.0 + 0.06 * spotDist + 0.018 * (spotDist * spotDist));
+
+            float spotDiff = max(dot(norm, spotLightVec), 0.0);
+            vec3 spotDiffuse = spotDiff * uSpotLightColor * aColor * spotAtten * spotCone * uSpotLightIntensity;
+
+            vec3 spotReflect = reflect(-spotLightVec, norm);
+            float spotSpec = pow(max(dot(viewDir, spotReflect), 0.0), uShininess);
+            vec3 spotSpecular = uSpecularStrength * spotSpec * uSpotLightColor * spotAtten * spotCone * uSpotLightIntensity;
+
+            GouraudColor = ambient + dirDiffuse + dirSpecular + pointDiffuse + pointSpecular + spotDiffuse + spotSpecular;
+        }
+    } else {
+        GouraudColor = vec3(0.0);
+    }
 }
 )";
 
@@ -32,9 +117,11 @@ in vec3 FragPos;
 in vec3 Normal;
 in vec3 VertexColor;
 in vec2 TexCoords;
+in vec3 GouraudColor;
 
 out vec4 FragColor;
 
+uniform int uShadingModel; // 0: Phong Shading (per-fragment), 1: Gouraud Shading (per-vertex)
 uniform vec3 uViewPos;
 
 // 1. Directional Light (Sun / Moon)
@@ -72,51 +159,59 @@ void main() {
         return;
     }
 
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uViewPos - FragPos);
+    vec3 result;
 
-    // --- Two Area Lights (Sky Fill & Ground Bounce) ---
-    float hemi = clamp(norm.y * 0.5 + 0.5, 0.0, 1.0);
-    vec3 skyFill = uAmbientColor * 1.15;
-    vec3 groundBounce = uGroundBounceColor;
-    vec3 ambient = mix(groundBounce, skyFill, hemi) * VertexColor;
+    if (uShadingModel == 1) {
+        // Gouraud Shading: Hardware-interpolated per-vertex lighting
+        result = GouraudColor;
+    } else {
+        // Phong Shading: Per-fragment lighting calculation
+        vec3 norm = normalize(Normal);
+        vec3 viewDir = normalize(uViewPos - FragPos);
 
-    // --- Directional Light (Sun / Moon) ---
-    vec3 dirLightVec = normalize(-uDirLightDir);
-    float dirDiff = max(dot(norm, dirLightVec), 0.0);
-    vec3 dirDiffuse = dirDiff * uDirLightColor * VertexColor;
+        // --- Two Area Lights (Sky Fill & Ground Bounce) ---
+        float hemi = clamp(norm.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 skyFill = uAmbientColor * 1.15;
+        vec3 groundBounce = uGroundBounceColor;
+        vec3 ambient = mix(groundBounce, skyFill, hemi) * VertexColor;
 
-    vec3 dirReflect = reflect(-dirLightVec, norm);
-    float dirSpec = pow(max(dot(viewDir, dirReflect), 0.0), uShininess);
-    vec3 dirSpecular = uSpecularStrength * dirSpec * uDirLightColor;
+        // --- Directional Light (Sun / Moon) ---
+        vec3 dirLightVec = normalize(-uDirLightDir);
+        float dirDiff = max(dot(norm, dirLightVec), 0.0);
+        vec3 dirDiffuse = dirDiff * uDirLightColor * VertexColor;
 
-    // --- Point Light (Burner Flame) ---
-    vec3 pointLightVec = normalize(uPointLightPos - FragPos);
-    float pointDist = length(uPointLightPos - FragPos);
-    float pointAtten = 1.0 / (1.0 + 0.12 * pointDist + 0.035 * (pointDist * pointDist));
-    float pointDiff = max(dot(norm, pointLightVec), 0.0);
-    vec3 pointDiffuse = pointDiff * uPointLightColor * VertexColor * pointAtten * uPointLightIntensity;
+        vec3 dirReflect = reflect(-dirLightVec, norm);
+        float dirSpec = pow(max(dot(viewDir, dirReflect), 0.0), uShininess);
+        vec3 dirSpecular = uSpecularStrength * dirSpec * uDirLightColor;
 
-    vec3 pointReflect = reflect(-pointLightVec, norm);
-    float pointSpec = pow(max(dot(viewDir, pointReflect), 0.0), uShininess);
-    vec3 pointSpecular = uSpecularStrength * 0.5 * pointSpec * uPointLightColor * pointAtten * uPointLightIntensity;
+        // --- Point Light (Burner Flame) ---
+        vec3 pointLightVec = normalize(uPointLightPos - FragPos);
+        float pointDist = length(uPointLightPos - FragPos);
+        float pointAtten = 1.0 / (1.0 + 0.12 * pointDist + 0.035 * (pointDist * pointDist));
+        float pointDiff = max(dot(norm, pointLightVec), 0.0);
+        vec3 pointDiffuse = pointDiff * uPointLightColor * VertexColor * pointAtten * uPointLightIntensity;
 
-    // --- Spotlight (Launch-Pad Floodlight) ---
-    vec3 spotLightVec = normalize(uSpotLightPos - FragPos);
-    float spotDist = length(uSpotLightPos - FragPos);
-    float theta = dot(spotLightVec, normalize(-uSpotLightDir));
-    float epsilon = uSpotLightCutOff - uSpotLightOuterCutOff;
-    float spotCone = clamp((theta - uSpotLightOuterCutOff) / epsilon, 0.0, 1.0);
-    float spotAtten = 1.0 / (1.0 + 0.06 * spotDist + 0.018 * (spotDist * spotDist));
+        vec3 pointReflect = reflect(-pointLightVec, norm);
+        float pointSpec = pow(max(dot(viewDir, pointReflect), 0.0), uShininess);
+        vec3 pointSpecular = uSpecularStrength * 0.5 * pointSpec * uPointLightColor * pointAtten * uPointLightIntensity;
 
-    float spotDiff = max(dot(norm, spotLightVec), 0.0);
-    vec3 spotDiffuse = spotDiff * uSpotLightColor * VertexColor * spotAtten * spotCone * uSpotLightIntensity;
+        // --- Spotlight (Launch-Pad Floodlight) ---
+        vec3 spotLightVec = normalize(uSpotLightPos - FragPos);
+        float spotDist = length(uSpotLightPos - FragPos);
+        float theta = dot(spotLightVec, normalize(-uSpotLightDir));
+        float epsilon = uSpotLightCutOff - uSpotLightOuterCutOff;
+        float spotCone = clamp((theta - uSpotLightOuterCutOff) / epsilon, 0.0, 1.0);
+        float spotAtten = 1.0 / (1.0 + 0.06 * spotDist + 0.018 * (spotDist * spotDist));
 
-    vec3 spotReflect = reflect(-spotLightVec, norm);
-    float spotSpec = pow(max(dot(viewDir, spotReflect), 0.0), uShininess);
-    vec3 spotSpecular = uSpecularStrength * spotSpec * uSpotLightColor * spotAtten * spotCone * uSpotLightIntensity;
+        float spotDiff = max(dot(norm, spotLightVec), 0.0);
+        vec3 spotDiffuse = spotDiff * uSpotLightColor * VertexColor * spotAtten * spotCone * uSpotLightIntensity;
 
-    vec3 result = ambient + dirDiffuse + dirSpecular + pointDiffuse + pointSpecular + spotDiffuse + spotSpecular;
+        vec3 spotReflect = reflect(-spotLightVec, norm);
+        float spotSpec = pow(max(dot(viewDir, spotReflect), 0.0), uShininess);
+        vec3 spotSpecular = uSpecularStrength * spotSpec * uSpotLightColor * spotAtten * spotCone * uSpotLightIntensity;
+
+        result = ambient + dirDiffuse + dirSpecular + pointDiffuse + pointSpecular + spotDiffuse + spotSpecular;
+    }
 
     // --- Natural Soft Distance Fog & Horizon Haze ---
     float dist = length(uViewPos - FragPos);

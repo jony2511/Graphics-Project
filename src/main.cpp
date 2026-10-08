@@ -72,6 +72,21 @@ enum LightingMode {
 };
 LightingMode currentLightMode = LIGHT_DAY;
 
+// Shading Models (Per-Fragment Phong vs Per-Vertex Gouraud)
+enum ShadingModel {
+    SHADING_PHONG = 0,
+    SHADING_GOURAUD = 1
+};
+ShadingModel currentShadingMode = SHADING_PHONG;
+
+const char* getShadingModelName(ShadingModel s) {
+    switch (s) {
+        case SHADING_PHONG: return "PHONG (Per-Fragment Lighting)";
+        case SHADING_GOURAUD: return "GOURAUD (Per-Vertex Lighting)";
+        default: return "PHONG";
+    }
+}
+
 // Lighting Lerp Profile
 struct LightingProfile {
     glm::vec3 sunDir;
@@ -274,6 +289,16 @@ void processInput(GLFWwindow* window) {
         lPressed = false;
     }
 
+    // M / P: Toggle Shading Model (Phong [Per-Fragment] vs Gouraud [Per-Vertex])
+    static bool shadingKeyPressed = false;
+    if ((glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) && !shadingKeyPressed) {
+        currentShadingMode = (currentShadingMode == SHADING_PHONG) ? SHADING_GOURAUD : SHADING_PHONG;
+        std::cout << "[SHADING MODEL] Switched to " << getShadingModelName(currentShadingMode) << "\n";
+        shadingKeyPressed = true;
+    } else if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_P) == GLFW_RELEASE) {
+        shadingKeyPressed = false;
+    }
+
     // R: Reset Scene
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && !rPressed) {
         balloonAltitude = 4.2f;
@@ -427,6 +452,7 @@ int main() {
     std::cout << "  * G                        : Toggle 360-Degree Free Look (ON / OFF in All Camera Modes)\n";
     std::cout << "  * 360 Look Controls        : Click & Drag (Left / Right Mouse) or Q / E / Z / C (All Modes)\n";
     std::cout << "  * L                        : Cycle Day / Sunset / Night / Dawn Lighting\n";
+    std::cout << "  * M / P                    : Toggle Shading Model (Phong [Per-Fragment] vs Gouraud [Per-Vertex])\n";
     std::cout << "  * R                        : Reset Balloon to Launch Position\n";
     std::cout << "  * H                        : Toggle HUD Dashboard\n";
     std::cout << "========================================================\n";
@@ -874,6 +900,7 @@ int main() {
             currentFps = fps;
             std::ostringstream ss;
             ss << "Hot Air Balloon 3D | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
+               << " | Shading: [" << (currentShadingMode == SHADING_PHONG ? "PHONG (M/P)" : "GOURAUD (M/P)") << "]"
                << " | Steer: [Arrows]"
                << " | Burner: [" << (burnerActive ? "FIRE (F)" : "OFF (F)") << "]"
                << " | 360: [" << (camera.is360Active() ? "ON (G)" : "OFF (G)") << "]"
@@ -901,6 +928,7 @@ int main() {
         sceneShader.setMat4("uProjection", projection);
         sceneShader.setMat4("uView", view);
         sceneShader.setVec3("uViewPos", camera.position);
+        sceneShader.setInt("uShadingModel", static_cast<int>(currentShadingMode));
 
         // Set Light Uniforms
         sceneShader.setVec3("uDirLightDir", curSunDir);
