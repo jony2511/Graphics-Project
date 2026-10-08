@@ -15,6 +15,7 @@ public:
     static Mesh createBalloonEnvelope(float radius, float height, int rings, int sectors);
 
     // Phase 2: Rural Landscape & Architecture
+    static float getTerrainHeight(float x, float z);
     static Mesh createRollingTerrain(float width, float depth, int subdivisions);
     static Mesh createPrism(float width, float height, float depth, const glm::vec3& color);
     static Mesh createStripedWindsock(float baseRadius, float tipRadius, float length, int sectors, int numStripes);

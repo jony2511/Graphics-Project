@@ -155,6 +155,37 @@ uniform float uShininess;
 uniform float uAlpha;
 uniform float uEmissive;
 uniform float uReflectivity;
+uniform int uMaterialType; // 0: Default prop, 1: Textured Meadow Terrain, 2: Textured Curved Dirt Road
+
+// Fast procedural noise helpers for realistic ground and road textures
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float noise2D(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm2D(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);
+    for (int i = 0; i < 4; ++i) {
+        v += a * noise2D(p);
+        p = rot * p * 2.02;
+        a *= 0.5;
+    }
+    return v;
+}
 
 void main() {
     if (uEmissive > 0.0) {
@@ -166,10 +197,99 @@ void main() {
 
     vec3 result;
     vec3 norm = (length(Normal) > 0.001) ? normalize(Normal) : vec3(0.0, 1.0, 0.0);
+    float dist = length(uViewPos - FragPos);
+    vec3 baseAlbedo = VertexColor;
+
+    // --- Procedural High-Fidelity Material System ---
+    if (uMaterialType == 1) {
+        // Multi-octave natural meadow terrain procedural texture
+        vec2 pMacro = FragPos.xz * 0.035;
+        vec2 pMeso  = FragPos.xz * 0.22;
+        vec2 pMicro = FragPos.xz * 1.8;
+        vec2 pDetail = FragPos.xz * 7.5;
+
+        float macroNoise = fbm2D(pMacro);
+        float mesoNoise  = fbm2D(pMeso);
+        float microBlade = noise2D(pMicro) * 0.65 + noise2D(pDetail) * 0.35;
+
+        // Rich, authentic rural Bengali countryside meadow palette
+        vec3 colDeepLush   = vec3(0.12, 0.40, 0.14); // Deep lush clover/turf
+        vec3 colPaddyGreen = vec3(0.20, 0.52, 0.18); // Fresh vibrant meadow
+        vec3 colSunlitPast = vec3(0.32, 0.60, 0.22); // Warm sunlit grass
+        vec3 colGoldenTips = vec3(0.40, 0.64, 0.24); // Fine grass highlights
+        vec3 colDarkEarth  = vec3(0.22, 0.28, 0.15); // Rich moist loam undertone
+
+        vec3 grassCol = mix(colDeepLush, colPaddyGreen, smoothstep(0.25, 0.70, macroNoise));
+        grassCol = mix(grassCol, colSunlitPast, smoothstep(0.35, 0.75, mesoNoise) * 0.75);
+        grassCol = mix(grassCol, colGoldenTips, smoothstep(0.55, 0.90, microBlade) * 0.45);
+        grassCol = mix(grassCol, colDarkEarth, (1.0 - smoothstep(0.20, 0.55, mesoNoise)) * 0.35);
+
+        // Distance mip/anti-aliasing fade to avoid harsh pixel grain
+        float detailFade = clamp(1.0 - dist / 320.0, 0.0, 1.0);
+        grassCol = mix(grassCol, VertexColor * 0.88, (1.0 - detailFade) * 0.45);
+        baseAlbedo = grassCol;
+
+        // Realistic blade/turf normal perturbation (bump mapping)
+        if (dist < 180.0) {
+            float bumpFactor = detailFade * 0.28;
+            vec3 grassBump = vec3(
+                noise2D(pMicro + vec2(1.7, 0.3)) - 0.5,
+                0.0,
+                noise2D(pMicro + vec2(3.1, 4.8)) - 0.5
+            ) * bumpFactor;
+            norm = normalize(norm + grassBump);
+        }
+    } else if (uMaterialType == 2) {
+        // Natural curved earthen village road with cart ruts, fine gravel, dust, and soft grassy verge
+        float u = clamp(TexCoords.x, 0.0, 1.0);
+        float vCoord = TexCoords.y;
+
+        float gravelNoise = noise2D(FragPos.xz * 3.5) * 0.65 + noise2D(FragPos.xz * 14.0) * 0.35;
+        float soilNoise   = fbm2D(FragPos.xz * 0.20);
+
+        vec3 colEarthenCenter = vec3(0.52, 0.44, 0.33); // Light beaten clay/earth
+        vec3 colCompactedRut  = vec3(0.38, 0.31, 0.22); // Darker compacted earth in ruts
+        vec3 colDustGravel    = vec3(0.58, 0.50, 0.38); // Sun-baked dust & fine sand
+        vec3 colWeedsCenter   = vec3(0.30, 0.46, 0.22); // Center ridge sparse grass
+        vec3 colBorderGrass   = vec3(0.18, 0.48, 0.16); // Lush verge grass
+
+        float rut1 = 1.0 - smoothstep(0.0, 0.15, abs(u - 0.26));
+        float rut2 = 1.0 - smoothstep(0.0, 0.15, abs(u - 0.74));
+        float rutAmount = max(rut1, rut2);
+
+        float centerRidge = 1.0 - smoothstep(0.0, 0.16, abs(u - 0.50));
+
+        vec3 roadCol = mix(colEarthenCenter, colDustGravel, soilNoise * 0.6);
+        roadCol = mix(roadCol, colCompactedRut, rutAmount * 0.75);
+        roadCol = mix(roadCol, colWeedsCenter, centerRidge * smoothstep(0.40, 0.80, soilNoise) * 0.55);
+        roadCol += (gravelNoise - 0.5) * 0.14 * (1.0 - rutAmount * 0.35);
+
+        // Soft feathered edge blending into meadow grass (zero harsh boundary lines!)
+        float edgeDist = min(u, 1.0 - u);
+        float edgeFactor = clamp(edgeDist / 0.18, 0.0, 1.0);
+        edgeFactor = edgeFactor * edgeFactor * (3.0 - 2.0 * edgeFactor);
+
+        vec3 vergeGrass = mix(colBorderGrass, vec3(0.13, 0.38, 0.14), soilNoise);
+        baseAlbedo = mix(vergeGrass, roadCol, edgeFactor);
+
+        if (dist < 140.0) {
+            float bumpFactor = clamp(1.0 - dist / 140.0, 0.0, 1.0) * 0.22 * edgeFactor;
+            vec3 roadBump = vec3(
+                noise2D(FragPos.xz * 4.5 + vec2(0.5, 1.2)) - 0.5,
+                0.0,
+                noise2D(FragPos.xz * 4.5 + vec2(2.1, 0.8)) - 0.5
+            ) * bumpFactor;
+            norm = normalize(norm + roadBump);
+        }
+    }
 
     if (uShadingModel == 1) {
-        // Gouraud Shading: Hardware-interpolated per-vertex lighting
-        result = GouraudColor;
+        // Gouraud Shading: Hardware-interpolated per-vertex lighting modulated with procedural albedo
+        if (uMaterialType != 0) {
+            result = GouraudColor * (baseAlbedo / max(VertexColor, vec3(0.05)));
+        } else {
+            result = GouraudColor;
+        }
     } else {
         // Phong Shading: Per-fragment lighting calculation
         vec3 viewDir = normalize(uViewPos - FragPos);
@@ -178,12 +298,12 @@ void main() {
         float hemi = clamp(norm.y * 0.5 + 0.5, 0.0, 1.0);
         vec3 skyFill = uAmbientColor * 1.15;
         vec3 groundBounce = uGroundBounceColor;
-        vec3 ambient = mix(groundBounce, skyFill, hemi) * VertexColor;
+        vec3 ambient = mix(groundBounce, skyFill, hemi) * baseAlbedo;
 
         // --- Directional Light (Sun / Moon) ---
         vec3 dirLightVec = normalize(-uDirLightDir);
         float dirDiff = max(dot(norm, dirLightVec), 0.0);
-        vec3 dirDiffuse = dirDiff * uDirLightColor * VertexColor;
+        vec3 dirDiffuse = dirDiff * uDirLightColor * baseAlbedo;
 
         vec3 dirReflect = reflect(-dirLightVec, norm);
         float dirSpec = pow(max(dot(viewDir, dirReflect), 0.0), uShininess);
@@ -194,7 +314,7 @@ void main() {
         float pointDist = length(uPointLightPos - FragPos);
         float pointAtten = 1.0 / (1.0 + 0.12 * pointDist + 0.035 * (pointDist * pointDist));
         float pointDiff = max(dot(norm, pointLightVec), 0.0);
-        vec3 pointDiffuse = pointDiff * uPointLightColor * VertexColor * pointAtten * uPointLightIntensity;
+        vec3 pointDiffuse = pointDiff * uPointLightColor * baseAlbedo * pointAtten * uPointLightIntensity;
 
         vec3 pointReflect = reflect(-pointLightVec, norm);
         float pointSpec = pow(max(dot(viewDir, pointReflect), 0.0), uShininess);
@@ -209,7 +329,7 @@ void main() {
         float spotAtten = 1.0 / (1.0 + 0.06 * spotDist + 0.018 * (spotDist * spotDist));
 
         float spotDiff = max(dot(norm, spotLightVec), 0.0);
-        vec3 spotDiffuse = spotDiff * uSpotLightColor * VertexColor * spotAtten * spotCone * uSpotLightIntensity;
+        vec3 spotDiffuse = spotDiff * uSpotLightColor * baseAlbedo * spotAtten * spotCone * uSpotLightIntensity;
 
         vec3 spotReflect = reflect(-spotLightVec, norm);
         float spotSpec = pow(max(dot(viewDir, spotReflect), 0.0), uShininess);
@@ -219,7 +339,6 @@ void main() {
     }
 
     // --- Natural Soft Distance Fog & Horizon Haze ---
-    float dist = length(uViewPos - FragPos);
     float fogStart = 200.0;
     float fogEnd = 640.0;
     float fogFactor = clamp((dist - fogStart) / (fogEnd - fogStart), 0.0, 1.0);

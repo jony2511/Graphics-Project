@@ -257,13 +257,13 @@ Mesh ModelGenerator::createBalloonEnvelope(float radius, float height, int rings
 // Phase 2: Rural Landscape & Architecture Generators
 // ========================================================
 
-static float getTerrainHeight(float x, float z) {
+float ModelGenerator::getTerrainHeight(float x, float z) {
     float dist = std::sqrt(x * x + z * z);
-    // Flat central area for launchpad and trail
-    if (dist < 16.0f) return 0.0f;
+    // Flat central area for launchpad platform
+    if (dist < 12.0f) return 0.0f;
 
-    // Gentle natural wetland plain with subtle drainage knolls
-    float weight = std::clamp((dist - 16.0f) / 42.0f, 0.0f, 1.0f);
+    // Gentle natural rural meadow plain with subtle drainage knolls
+    float weight = std::clamp((dist - 12.0f) / 36.0f, 0.0f, 1.0f);
     weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep
 
     float h1 = 2.0f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
@@ -315,15 +315,15 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
 
             glm::vec3 norm = glm::normalize(glm::vec3((hL - hR) / (2.0f * eps), 1.0f, (hD - hU) / (2.0f * eps)));
 
-            // Rich, vibrant lush green rural village palette:
+            // Rich, vibrant natural green rural village palette:
             float n1 = std::sin(posX * 0.08f + posZ * 0.06f);
             float n2 = std::cos(posX * 0.04f - posZ * 0.05f + 1.2f);
             float noise = (n1 + n2) * 0.5f; // [-1.0, 1.0]
 
-            glm::vec3 deepGardenGreen(0.12f, 0.48f, 0.16f); // Deep lush green
-            glm::vec3 paddyEmerald(0.18f, 0.62f, 0.20f);    // Vibrant Bengali paddy green
-            glm::vec3 meadowSpring(0.26f, 0.72f, 0.24f);    // Bright fresh spring grass
-            glm::vec3 sunlitField(0.32f, 0.76f, 0.28f);     // Sun-warmed grassy knoll
+            glm::vec3 deepGardenGreen(0.12f, 0.44f, 0.15f); // Deep lush green
+            glm::vec3 paddyEmerald(0.18f, 0.56f, 0.19f);    // Vibrant Bengali paddy green
+            glm::vec3 meadowSpring(0.26f, 0.66f, 0.22f);    // Fresh spring grass
+            glm::vec3 sunlitField(0.34f, 0.70f, 0.25f);     // Sun-warmed grassy knoll
 
             glm::vec3 vertColor;
             if (noise < -0.20f) {
@@ -349,7 +349,7 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
                 vertColor = glm::mix(vertColor, distantRidgeGreen, horizonHaze * 0.60f);
             }
 
-            vertices.push_back({{posX, posY, posZ}, norm, vertColor, {(float)x / subdivisions, (float)z / subdivisions}});
+            vertices.push_back({{posX, posY, posZ}, norm, vertColor, {posX * 0.05f, posZ * 0.05f}});
         }
     }
 
@@ -534,48 +534,139 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    const int numSteps = 140;
-    const float roadWidth = 3.6f;
+    const int numSteps = 260;
+    const float roadWidth = 3.8f;
+    const int numCross = 9;
 
-    // Natural rural earthen footpath with lush green encroaching borders
-    glm::vec3 pathCenter(0.54f, 0.46f, 0.34f);  // Light beaten earth track
-    glm::vec3 pathRut(0.42f, 0.36f, 0.26f);     // Soft earth depression
-    glm::vec3 pathGrass(0.22f, 0.64f, 0.24f);   // Fresh vibrant green grass encroaching path
+    // Catmull-Rom control points guiding the village road from the launchpad exit gate
+    // smoothly through the countryside, winding between cottages, trees, pond and orchards
+    struct SplinePoint {
+        float x;
+        float z;
+    };
+
+    const std::vector<SplinePoint> controlPoints = {
+        {  0.0f,   7.8f},  // Platform exit gate (z=7.8)
+        {  1.5f,  13.0f},  // Leading away from launchpad
+        {  4.5f,  20.0f},
+        {  9.2f,  27.5f},
+        { 15.0f,  33.5f},  // Weaves between Cottage 1 (21, 31) and Banyan 1 (13.8, 32.5)
+        { 20.8f,  41.0f},
+        { 25.5f,  49.5f},  // Sweeps past the village pond bank (46, 36)
+        { 29.8f,  59.0f},
+        { 33.2f,  69.5f},  // Reaches near Homestead 2 (38, 68) & Haystacks
+        { 31.5f,  82.0f},
+        { 24.5f,  95.0f},  // Passes Homestead 4 (16, 96)
+        { 16.0f, 110.0f},
+        {  8.0f, 128.0f},  // North grove trail
+        { -2.0f, 150.0f},
+        {-10.0f, 175.0f}   // Disappears into gentle horizon ridges
+    };
+
+    auto evaluateSpline = [&](float globalT, glm::vec2& outPos, glm::vec2& outTan) {
+        int numSegments = (int)controlPoints.size() - 1;
+        float scaledT = globalT * (float)numSegments;
+        int i1 = std::clamp((int)std::floor(scaledT), 0, numSegments - 1);
+        float u = scaledT - (float)i1;
+
+        int i0 = std::max(0, i1 - 1);
+        int i2 = std::min(numSegments, i1 + 1);
+        int i3 = std::min(numSegments, i1 + 2);
+
+        glm::vec2 p0(controlPoints[i0].x, controlPoints[i0].z);
+        glm::vec2 p1(controlPoints[i1].x, controlPoints[i1].z);
+        glm::vec2 p2(controlPoints[i2].x, controlPoints[i2].z);
+        glm::vec2 p3(controlPoints[i3].x, controlPoints[i3].z);
+
+        glm::vec2 a = -p0 + 3.0f * p1 - 3.0f * p2 + p3;
+        glm::vec2 b = 2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3;
+        glm::vec2 c = -p0 + p2;
+        glm::vec2 d = 2.0f * p1;
+
+        outPos = 0.5f * (d + u * (c + u * (b + u * a)));
+
+        glm::vec2 tan = 0.5f * (c + 2.0f * b * u + 3.0f * a * u * u);
+        if (glm::length(tan) > 0.0001f) {
+            outTan = glm::normalize(tan);
+        } else {
+            outTan = glm::vec2(0.0f, 1.0f);
+        }
+    };
+
+    // 9 cross-sectional lateral fraction coordinates from -1.0 to +1.0
+    const float crossFractions[numCross] = {
+        -1.00f, -0.75f, -0.50f, -0.25f, 0.00f, 0.25f, 0.50f, 0.75f, 1.00f
+    };
+
+    // Height offsets relative to ground terrain (depressed ruts, raised center & edges)
+    const float heightDeltas[numCross] = {
+        0.006f, // -1.00: Left outer grass verge (flush with ground)
+        0.016f, // -0.75: Left earth shoulder
+        0.008f, // -0.50: Left cart rut (depressed track)
+        0.022f, // -0.25: Left inner ridge slope
+        0.030f, //  0.00: Center ridge (raised beaten earth)
+        0.022f, // +0.25: Right inner ridge slope
+        0.008f, // +0.50: Right cart rut (depressed track)
+        0.016f, // +0.75: Right earth shoulder
+        0.006f  // +1.00: Right outer grass verge (flush with ground)
+    };
+
+    // Vertex colors for smooth baseline shading:
+    glm::vec3 colVergeGrass(0.20f, 0.52f, 0.18f);
+    glm::vec3 colEarthenCenter(0.52f, 0.44f, 0.33f);
+    glm::vec3 colCompactedRut(0.38f, 0.31f, 0.22f);
+
+    float accumDist = 0.0f;
+    glm::vec2 prevCenter(controlPoints[0].x, controlPoints[0].z);
+
+    const float epsNorm = 0.4f;
 
     for (int i = 0; i <= numSteps; ++i) {
         float t = (float)i / (float)numSteps;
-        // Natural winding village path from launchpad all the way past the village settlements
-        float z = -12.0f + t * 160.0f; // -12m to 148m
-        float x = 22.0f * std::sin(t * (float)M_PI * 1.8f) + 4.0f * std::sin(t * 6.0f);
-        float y = getTerrainHeight(x, z) + 0.06f; // Raised slightly above terrain
+        glm::vec2 centerPos2D, tan2D;
+        evaluateSpline(t, centerPos2D, tan2D);
 
-        // Tangent & Normal
-        float dz = 160.0f;
-        float dx = 22.0f * (float)M_PI * 1.8f * std::cos(t * (float)M_PI * 1.8f) + 24.0f * std::cos(t * 6.0f);
-        glm::vec3 tangent = glm::normalize(glm::vec3(dx, 0.0f, dz));
-        glm::vec3 side = glm::normalize(glm::vec3(-tangent.z, 0.0f, tangent.x));
-        glm::vec3 norm(0.0f, 1.0f, 0.0f);
+        accumDist += glm::length(centerPos2D - prevCenter);
+        prevCenter = centerPos2D;
 
-        // 5 Cross-sectional profile points: OuterL, RutL, Center, RutR, OuterR
-        float wHalf = roadWidth * 0.5f;
-        glm::vec3 p0 = glm::vec3(x, y, z) - side * wHalf;
-        glm::vec3 p1 = glm::vec3(x, y - 0.02f, z) - side * (wHalf * 0.5f);
-        glm::vec3 p2 = glm::vec3(x, y + 0.015f, z);
-        glm::vec3 p3 = glm::vec3(x, y - 0.02f, z) + side * (wHalf * 0.5f);
-        glm::vec3 p4 = glm::vec3(x, y, z) + side * wHalf;
+        glm::vec2 side2D(-tan2D.y, tan2D.x);
 
-        vertices.push_back({p0, norm, pathGrass,  {0.00f, t * 8.0f}});
-        vertices.push_back({p1, norm, pathRut,    {0.25f, t * 8.0f}});
-        vertices.push_back({p2, norm, pathCenter, {0.50f, t * 8.0f}});
-        vertices.push_back({p3, norm, pathRut,    {0.75f, t * 8.0f}});
-        vertices.push_back({p4, norm, pathGrass,  {1.00f, t}});
+        for (int c = 0; c < numCross; ++c) {
+            float latFrac = crossFractions[c];
+            float uCoord = (latFrac + 1.0f) * 0.5f; // [0.0, 1.0]
+
+            glm::vec2 vertXZ = centerPos2D + side2D * (latFrac * roadWidth * 0.5f);
+            float groundY = getTerrainHeight(vertXZ.x, vertXZ.y);
+            float vertY = groundY + heightDeltas[c];
+
+            // Finite-difference surface normal conforming to ground contours
+            float hL = getTerrainHeight(vertXZ.x - epsNorm, vertXZ.y);
+            float hR = getTerrainHeight(vertXZ.x + epsNorm, vertXZ.y);
+            float hD = getTerrainHeight(vertXZ.x, vertXZ.y - epsNorm);
+            float hU = getTerrainHeight(vertXZ.x, vertXZ.y + epsNorm);
+            glm::vec3 norm = glm::normalize(glm::vec3((hL - hR) / (2.0f * epsNorm), 1.0f, (hD - hU) / (2.0f * epsNorm)));
+
+            // Color blending across cross-section
+            glm::vec3 vColor;
+            float absLat = std::abs(latFrac);
+            if (absLat > 0.70f) {
+                float blend = (absLat - 0.70f) / 0.30f;
+                vColor = glm::mix(colEarthenCenter, colVergeGrass, blend);
+            } else if (absLat > 0.35f && absLat < 0.65f) {
+                vColor = colCompactedRut;
+            } else {
+                vColor = colEarthenCenter;
+            }
+
+            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.35f}});
+        }
     }
 
     for (int i = 0; i < numSteps; ++i) {
-        unsigned int row1 = i * 5;
-        unsigned int row2 = (i + 1) * 5;
+        unsigned int row1 = i * numCross;
+        unsigned int row2 = (i + 1) * numCross;
 
-        for (int c = 0; c < 4; ++c) {
+        for (int c = 0; c < numCross - 1; ++c) {
             indices.push_back(row1 + c);
             indices.push_back(row2 + c);
             indices.push_back(row1 + c + 1);
