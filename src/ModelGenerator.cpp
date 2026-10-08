@@ -519,36 +519,34 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<unsigned int> indices;
 
     const int numSteps = 340;
-    const float roadWidth = 5.2f;
-    const int numCross = 11;
+    const float roadWidth = 5.8f;
+    const int numCross = 13;
 
-    // Catmull-Rom control points guiding the scenic countryside road:
-    // Starting in the foreground left (strikingly visible from Camera 1 Overview),
-    // curving past the launch platform, connecting to the entrance gate,
-    // and meandering through the lush village, past cottages, ponds, and distant hills.
+    // Catmull-Rom control points guiding the authentic Bengali rural earthen road:
+    // Winding gracefully from foreground-left in front of the viewer, past the launch pad,
+    // through the village center, cottages, trees, pond and distant rolling horizon.
     struct SplinePoint {
         float x;
         float z;
     };
 
     const std::vector<SplinePoint> controlPoints = {
-        {-32.0f, -28.0f}, // Foreground left entrance (prominently visible in Camera 1 Overview!)
-        {-26.0f, -19.0f},
-        {-20.0f, -10.0f}, // Sweeps smoothly past western perimeter of the launch pad
-        {-15.0f,  -1.5f},
-        {-10.5f,   5.2f}, // Curves around launch platform corner
-        { -5.5f,   8.2f},
-        {  0.0f,   8.6f}, // Directly at the launch platform entrance gate!
-        {  5.0f,  14.5f}, // Weaves into the village meadow
-        {  9.8f,  22.5f},
-        { 15.5f,  31.5f}, // Weaves between Cottage 1 (21, 31) and Banyan 1 (13.8, 32.5)
-        { 21.2f,  41.0f},
-        { 26.5f,  50.5f}, // Sweeps past the village pond bank (46, 36)
-        { 30.5f,  61.0f},
-        { 33.2f,  71.5f}, // Reaches near Homestead 2 (38, 68) & Haystacks
-        { 30.0f,  84.5f},
-        { 22.5f,  99.0f}, // Passes Homestead 4 (16, 96)
-        { 13.0f, 116.0f},
+        {-34.0f, -26.0f}, // Foreground left entrance (clearly visible in Camera 1 Overview!)
+        {-27.0f, -17.0f},
+        {-19.5f,  -8.0f}, // Sweeps smoothly past western perimeter of the launch pad
+        {-13.5f,   1.0f},
+        { -8.5f,   6.8f}, // Curves toward platform entrance gate
+        { -2.0f,   8.8f}, // Lines up with platform gate
+        {  2.5f,  11.5f}, // Sweeps into open village meadow
+        {  7.5f,  18.0f},
+        { 13.5f,  26.5f}, // Weaves between Cottage 1 (21, 31) and Banyan Tree 1 (13.8, 32.5)
+        { 19.5f,  36.5f},
+        { 25.5f,  47.5f}, // Sweeps past the village pond bank (46, 36)
+        { 30.0f,  59.0f},
+        { 32.5f,  70.5f}, // Reaches near Homestead 2 (38, 68) & Haystacks
+        { 29.5f,  83.5f},
+        { 22.0f,  98.0f}, // Passes Homestead 4 (16, 96)
+        { 13.0f, 115.0f},
         {  3.0f, 138.0f}, // North grove trail
         { -6.0f, 162.0f},
         {-15.0f, 188.0f}  // Disappears gracefully into the distant hills
@@ -584,30 +582,33 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
         }
     };
 
-    // 11 cross-sectional lateral fraction coordinates from -1.0 to +1.0
+    // 13 cross-sectional lateral fraction coordinates from -1.0 to +1.0
     const float crossFractions[numCross] = {
-        -1.00f, -0.84f, -0.68f, -0.48f, -0.24f, 0.00f, 0.24f, 0.48f, 0.68f, 0.84f, 1.00f
+        -1.00f, -0.85f, -0.70f, -0.55f, -0.38f, -0.20f, 0.00f,
+         0.20f,  0.38f,  0.55f,  0.70f,  0.85f,  1.00f
     };
 
-    // Height offsets relative to ground terrain (raised dressed stone curbs, crowned cobblestone center)
+    // Smooth crowned earthen profile (flush at grass verge, gently crowned at center)
     const float heightDeltas[numCross] = {
-        0.008f, // -1.00: Left outer grass verge transition
-        0.038f, // -0.84: Left stone curb outer edge
-        0.042f, // -0.68: Left stone curb inner edge
-        0.032f, // -0.48: Left paved road lane
-        0.037f, // -0.24: Crowned paver slope
-        0.042f, //  0.00: Center crowned ridge
-        0.037f, // +0.24: Crowned paver slope
-        0.032f, // +0.48: Right paved road lane
-        0.042f, // +0.68: Right stone curb inner edge
-        0.038f, // +0.84: Right stone curb outer edge
-        0.008f  // +1.00: Right outer grass verge transition
+        0.005f, // -1.00: Flush with outer grass verge
+        0.012f, // -0.85: Outer earth slope
+        0.018f, // -0.70: Side track
+        0.023f, // -0.55: Inner slope
+        0.027f, // -0.38: Crown shoulder
+        0.030f, // -0.20: Crown rise
+        0.032f, //  0.00: Gentle crowned center ridge
+        0.030f, // +0.20: Crown rise
+        0.027f, // +0.38: Crown shoulder
+        0.023f, // +0.55: Inner slope
+        0.018f, // +0.70: Side track
+        0.012f, // +0.85: Outer earth slope
+        0.005f  // +1.00: Flush with outer grass verge
     };
 
-    // Vertex colors for smooth baseline shading:
-    glm::vec3 colVergeGrass(0.20f, 0.52f, 0.18f);
-    glm::vec3 colStonePaver(0.64f, 0.54f, 0.42f);
-    glm::vec3 colStoneCurb(0.55f, 0.52f, 0.48f);
+    // Baseline colors for golden-ochre rural earthen road (matching reference art):
+    glm::vec3 colGoldenRoad(0.91f, 0.68f, 0.22f);
+    glm::vec3 colCaramelSide(0.74f, 0.46f, 0.12f);
+    glm::vec3 colVergeGrass(0.22f, 0.56f, 0.20f);
 
     float accumDist = 0.0f;
     glm::vec2 prevCenter(controlPoints[0].x, controlPoints[0].z);
@@ -642,16 +643,17 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
             // Color blending across cross-section
             glm::vec3 vColor;
             float absLat = std::abs(latFrac);
-            if (absLat > 0.84f) {
-                float blend = (absLat - 0.84f) / 0.16f;
-                vColor = glm::mix(colStoneCurb, colVergeGrass, blend);
-            } else if (absLat >= 0.68f) {
-                vColor = colStoneCurb;
+            if (absLat > 0.85f) {
+                float blend = (absLat - 0.85f) / 0.15f;
+                vColor = glm::mix(colCaramelSide, colVergeGrass, blend);
+            } else if (absLat > 0.45f) {
+                float blend = (absLat - 0.45f) / 0.40f;
+                vColor = glm::mix(colGoldenRoad, colCaramelSide, blend);
             } else {
-                vColor = colStonePaver;
+                vColor = colGoldenRoad;
             }
 
-            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.38f}});
+            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.35f}});
         }
     }
 
@@ -669,6 +671,187 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
             indices.push_back(row2 + c + 1);
         }
     }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createVillageWell() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    auto addBox = [&](glm::vec3 pMin, glm::vec3 pMax, glm::vec3 col) {
+        unsigned int b = (unsigned int)vertices.size();
+        glm::vec3 n;
+        // Top (+Y)
+        n = glm::vec3(0, 1, 0);
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col, {0, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Bottom (-Y)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, -1, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.7f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.7f, {1, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.7f, {1, 1}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.7f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Front (+Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, 1);
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.95f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.95f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.95f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.95f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Back (-Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, -1);
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.85f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.85f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.85f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.85f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Right (+X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(1, 0, 0);
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.90f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.90f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.90f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.90f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Left (-X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(-1, 0, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.80f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.80f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.80f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.80f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+    };
+
+    // Colors matching the traditional brick well in the reference painting:
+    glm::vec3 colBrick(0.78f, 0.44f, 0.26f);     // Terracotta kiln brick wall
+    glm::vec3 colBrickRim(0.85f, 0.52f, 0.32f);  // Raised brick rim
+    glm::vec3 colApronStone(0.56f, 0.53f, 0.48f);// Base paved platform
+    glm::vec3 colWood(0.42f, 0.28f, 0.17f);      // Heavy timber frame
+    glm::vec3 colDarkWater(0.12f, 0.35f, 0.38f); // Deep well water
+    glm::vec3 colRope(0.80f, 0.72f, 0.52f);      // Jute hemp rope
+    glm::vec3 colBucket(0.50f, 0.35f, 0.20f);    // Wood bucket
+
+    const int sectors = 24;
+    const float rOuter = 0.95f;
+    const float rInner = 0.76f;
+    const float hWall = 1.05f;
+
+    // 1. Apron Stone Base (Circular plinth around well)
+    float rApron = 1.45f;
+    unsigned int cBaseIdx = (unsigned int)vertices.size();
+    vertices.push_back({{0.0f, 0.10f, 0.0f}, {0, 1, 0}, colApronStone, {0.5f, 0.5f}});
+    for (int s = 0; s <= sectors; ++s) {
+        float angle = (float)s / (float)sectors * 2.0f * (float)M_PI;
+        float x = rApron * std::cos(angle);
+        float z = rApron * std::sin(angle);
+        vertices.push_back({{x, 0.10f, z}, {0, 1, 0}, colApronStone * 0.95f, {0.5f + 0.5f * std::cos(angle), 0.5f + 0.5f * std::sin(angle)}});
+        if (s > 0) {
+            indices.push_back(cBaseIdx);
+            indices.push_back(cBaseIdx + s);
+            indices.push_back(cBaseIdx + s + 1);
+        }
+    }
+
+    // 2. Circular Outer Brick Wall (Cylinder side)
+    for (int s = 0; s <= sectors; ++s) {
+        float angle = (float)s / (float)sectors * 2.0f * (float)M_PI;
+        float cosA = std::cos(angle);
+        float sinA = std::sin(angle);
+        glm::vec3 norm(cosA, 0.0f, sinA);
+
+        glm::vec3 bCol = (s % 2 == 0) ? colBrick : colBrick * 1.08f;
+
+        unsigned int b = (unsigned int)vertices.size();
+        vertices.push_back({{rOuter * cosA, 0.10f, rOuter * sinA}, norm, bCol * 0.92f, {(float)s, 0.0f}});
+        vertices.push_back({{rOuter * cosA, hWall, rOuter * sinA}, norm, bCol, {(float)s, 1.0f}});
+
+        if (s > 0) {
+            indices.push_back(b - 2); indices.push_back(b - 1); indices.push_back(b);
+            indices.push_back(b - 1); indices.push_back(b + 1); indices.push_back(b);
+        }
+    }
+
+    // 3. Inner Wall (facing inside)
+    for (int s = 0; s <= sectors; ++s) {
+        float angle = (float)s / (float)sectors * 2.0f * (float)M_PI;
+        float cosA = std::cos(angle);
+        float sinA = std::sin(angle);
+        glm::vec3 norm(-cosA, 0.0f, -sinA);
+
+        unsigned int b = (unsigned int)vertices.size();
+        vertices.push_back({{rInner * cosA, 0.35f, rInner * sinA}, norm, colBrick * 0.70f, {(float)s, 0.0f}});
+        vertices.push_back({{rInner * cosA, hWall, rInner * sinA}, norm, colBrick * 0.85f, {(float)s, 1.0f}});
+
+        if (s > 0) {
+            indices.push_back(b - 2); indices.push_back(b);     indices.push_back(b - 1);
+            indices.push_back(b - 1); indices.push_back(b);     indices.push_back(b + 1);
+        }
+    }
+
+    // 4. Well Rim Cap (Ring joining outer and inner wall at top)
+    for (int s = 0; s <= sectors; ++s) {
+        float angle = (float)s / (float)sectors * 2.0f * (float)M_PI;
+        float cosA = std::cos(angle);
+        float sinA = std::sin(angle);
+        glm::vec3 norm(0.0f, 1.0f, 0.0f);
+
+        unsigned int b = (unsigned int)vertices.size();
+        vertices.push_back({{rInner * cosA, hWall, rInner * sinA}, norm, colBrickRim, {(float)s, 0.0f}});
+        vertices.push_back({{rOuter * cosA, hWall, rOuter * sinA}, norm, colBrickRim * 0.95f, {(float)s, 1.0f}});
+
+        if (s > 0) {
+            indices.push_back(b - 2); indices.push_back(b - 1); indices.push_back(b);
+            indices.push_back(b - 1); indices.push_back(b + 1); indices.push_back(b);
+        }
+    }
+
+    // 5. Water Surface Inside (Reflective disc at height 0.40m)
+    unsigned int waterIdx = (unsigned int)vertices.size();
+    vertices.push_back({{0.0f, 0.40f, 0.0f}, {0, 1, 0}, colDarkWater, {0.5f, 0.5f}});
+    for (int s = 0; s <= sectors; ++s) {
+        float angle = (float)s / (float)sectors * 2.0f * (float)M_PI;
+        float x = (rInner - 0.02f) * std::cos(angle);
+        float z = (rInner - 0.02f) * std::sin(angle);
+        vertices.push_back({{x, 0.40f, z}, {0, 1, 0}, colDarkWater * 1.15f, {0.5f + 0.5f * std::cos(angle), 0.5f + 0.5f * std::sin(angle)}});
+        if (s > 0) {
+            indices.push_back(waterIdx);
+            indices.push_back(waterIdx + s);
+            indices.push_back(waterIdx + s + 1);
+        }
+    }
+
+    // 6. Upright Wooden Posts & Timber Pulley Gantry
+    addBox(glm::vec3(-0.06f, 0.10f, -0.92f), glm::vec3(0.06f, 2.35f, -0.80f), colWood);
+    addBox(glm::vec3(-0.06f, 0.10f,  0.80f), glm::vec3(0.06f, 2.35f,  0.92f), colWood);
+    // Crossbeam
+    addBox(glm::vec3(-0.07f, 2.25f, -1.02f), glm::vec3(0.07f, 2.39f,  1.02f), colWood * 1.05f);
+
+    // Pulley spindle & wheel
+    addBox(glm::vec3(-0.03f, 2.08f, -0.15f), glm::vec3(0.03f, 2.25f,  0.15f), glm::vec3(0.30f, 0.28f, 0.25f));
+    // Hanging rope
+    addBox(glm::vec3(-0.015f, 1.20f, -0.015f), glm::vec3(0.015f, 2.15f, 0.015f), colRope);
+    // Suspended wood bucket
+    addBox(glm::vec3(-0.15f, 0.95f, -0.15f), glm::vec3(0.15f, 1.25f, 0.15f), colBucket);
 
     return Mesh(vertices, indices);
 }

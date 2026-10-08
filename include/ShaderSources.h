@@ -254,105 +254,83 @@ void main() {
             norm = normalize(norm + grassBump);
         }
     } else if (uMaterialType == 2) {
-        // High-Fidelity Rustic Countryside Paved Road
-        // Interlocking warm terracotta, golden sandstone & granite cobblestones,
-        // dressed stone curb edges, recessed mossy mortar joints, and wildflower meadow verges
+        // Authentic Golden-Ochre Countryside Earthen Road (মেঠোপথ / মাটির পথ - Matching Reference Art)
         float u = clamp(TexCoords.x, 0.0, 1.0);
         float vCoord = TexCoords.y;
         float edgeDist = min(u, 1.0 - u);
 
-        // 1. Central Cobblestone Roadway (u in [0.16, 0.84])
-        float uLane = clamp((u - 0.16) / 0.68, 0.0, 1.0);
-        vec2 stoneCoord = vec2(uLane * 6.5, vCoord * 1.55);
+        // Natural organic noise for earth variations
+        float soilNoise1 = noise2D(FragPos.xz * 0.35);
+        float soilNoise2 = noise2D(FragPos.xz * 1.8);
+        float fineGrain   = noise2D(FragPos.xz * 8.0);
 
-        // Stagger alternating rows for running bond pattern
-        float rowId = floor(stoneCoord.y);
-        if (mod(rowId, 2.0) > 0.5) {
-            stoneCoord.x += 0.5;
+        // Reference Image Color Palette: Warm Sunlit Golden-Amber Earthen Road
+        vec3 colGoldenOchre  = vec3(0.91, 0.68, 0.22); // Vibrant sunlit golden clay (center lane)
+        vec3 colWarmAmber    = vec3(0.84, 0.58, 0.16); // Warm amber beaten earth
+        vec3 colDeepCaramel  = vec3(0.72, 0.44, 0.11); // Rich caramel-ochre side tracks
+        vec3 colSunHighlight = vec3(0.96, 0.77, 0.28); // Bright sunny streak highlight
+        vec3 colDampEarth    = vec3(0.65, 0.38, 0.10); // Richer damp earth accent
+
+        // Artistic Longitudinal Flow Bands (matching the flowing stripes in reference art)
+        // Center beaten lane: bright sunny golden ochre (u around 0.40 - 0.72)
+        float centerTread = 1.0 - smoothstep(0.0, 0.26, abs(u - 0.52));
+        float innerHighlight = 1.0 - smoothstep(0.0, 0.14, abs(u - 0.48));
+
+        // Side wheel / foot trail bands (slightly richer warm caramel)
+        float leftTrail  = 1.0 - smoothstep(0.0, 0.16, abs(u - 0.24));
+        float rightTrail = 1.0 - smoothstep(0.0, 0.16, abs(u - 0.78));
+        float sideTrails = max(leftTrail, rightTrail);
+
+        // Composite the layered earthen colors
+        vec3 roadCol = mix(colWarmAmber, colGoldenOchre, centerTread * 0.75);
+        roadCol = mix(roadCol, colDeepCaramel, sideTrails * 0.55);
+        roadCol = mix(roadCol, colSunHighlight, innerHighlight * 0.45);
+        roadCol = mix(roadCol, colDampEarth, soilNoise1 * 0.22);
+        roadCol += (fineGrain - 0.5) * 0.06; // Subtle fine organic earth grain
+
+        // Scattered Stylized Pebbles & Earth Spots (matching the rounded spots in the reference art)
+        vec2 spotCoord = vec2(u * 9.0, vCoord * 2.0);
+        vec2 sCell = fract(spotCoord) - 0.5;
+        vec2 sId = floor(spotCoord);
+        float sHash = hash21(sId);
+        float sDist = length(sCell * vec2(1.0, 1.5));
+        if (sHash > 0.65 && sDist < 0.26) {
+            float sFade = smoothstep(0.26, 0.08, sDist);
+            vec3 pebbleCol = (sHash > 0.85) ? vec3(0.95, 0.76, 0.30) : vec3(0.64, 0.38, 0.10);
+            roadCol = mix(roadCol, pebbleCol, sFade * 0.60);
         }
 
-        vec2 stoneCell = fract(stoneCoord) - 0.5;
-        vec2 stoneId = floor(stoneCoord);
+        // Roadside Wildflower Edging & Soft Grass Verge (matching reference art bottom right)
+        vec3 colMeadowGrass = vec3(0.22, 0.56, 0.20); // Vibrant meadow green
+        vec3 vergeGrass = mix(colMeadowGrass, vec3(0.28, 0.64, 0.22), soilNoise2);
 
-        float rand1 = hash21(stoneId);
-        float rand2 = hash21(stoneId + vec2(17.3, 31.9));
-
-        // Rounded chamfered paver distance metric
-        vec2 dBox = max(abs(stoneCell) - vec2(0.38, 0.36), 0.0);
-        float dJoint = length(dBox);
-        float mortarJoint = smoothstep(0.04, 0.12, dJoint);
-
-        // Harmonious, warm European/countryside stone palette
-        vec3 colTerra   = vec3(0.68, 0.45, 0.33); // Warm Tuscan terracotta paver
-        vec3 colSand    = vec3(0.72, 0.63, 0.49); // Golden sunlit sandstone
-        vec3 colGranite = vec3(0.58, 0.55, 0.50); // Buff gray granite block
-        vec3 colRiver   = vec3(0.64, 0.53, 0.42); // Warm river stone
-        vec3 stoneCol;
-        if (rand1 < 0.28) {
-            stoneCol = mix(colTerra, colSand, rand2 * 0.65);
-        } else if (rand1 < 0.60) {
-            stoneCol = mix(colSand, colRiver, rand2 * 0.70);
-        } else if (rand1 < 0.82) {
-            stoneCol = mix(colRiver, colGranite, rand2 * 0.60);
-        } else {
-            stoneCol = mix(colGranite, colTerra, rand2 * 0.45);
-        }
-
-        // Mineral grain and micro-texture on stone surface
-        float mineralNoise = noise2D(FragPos.xz * 12.0) * 0.6 + noise2D(FragPos.xz * 28.0) * 0.4;
-        stoneCol *= (0.88 + 0.24 * mineralNoise);
-
-        // Recessed dark earthy mortar joint with velvety green moss
-        vec3 colMortar = vec3(0.24, 0.22, 0.19);
-        vec3 colMoss   = vec3(0.18, 0.38, 0.14);
-        float mossNoise = smoothstep(0.35, 0.75, noise2D(FragPos.xz * 1.8 + vec2(4.2, 1.7)));
-        vec3 mortarCol = mix(colMortar, colMoss, mossNoise * 0.65);
-        vec3 paverRoad = mix(stoneCol, mortarCol, mortarJoint);
-
-        // 2. Dressed Granite Curb Borders (edgeDist in [0.08, 0.16])
-        float curbV = vCoord * 0.75;
-        float curbJoint = smoothstep(0.42, 0.48, abs(fract(curbV) - 0.5));
-        vec3 curbCol = mix(vec3(0.62, 0.58, 0.52), vec3(0.26, 0.24, 0.21), curbJoint);
-        curbCol *= (0.90 + 0.20 * noise2D(FragPos.xz * 10.0));
-
-        // 3. Grassy Meadow Roadside Verge with Wildflowers (edgeDist < 0.08)
-        float vergeNoise = noise2D(FragPos.xz * 2.2);
-        vec3 vergeGrass = mix(vec3(0.20, 0.52, 0.18), vec3(0.14, 0.38, 0.14), vergeNoise);
-
-        // Wildflower blooms along road edge (buttercup yellow & daisy white)
-        float flowerHash = hash21(floor(FragPos.xz * 4.5));
-        if (flowerHash > 0.82 && edgeDist < 0.075) {
-            vec3 flowerCol = (flowerHash > 0.92) ? vec3(0.98, 0.88, 0.30) : vec3(0.96, 0.96, 0.98);
-            vergeGrass = flowerCol;
-        }
-
-        // Composite the three cross-section zones
-        vec3 roadSurface;
-        if (edgeDist < 0.08) {
-            float tVerge = smoothstep(0.01, 0.075, edgeDist);
-            roadSurface = mix(vergeGrass, curbCol, tVerge);
-        } else if (edgeDist < 0.16) {
-            float tCurb = smoothstep(0.08, 0.155, edgeDist);
-            roadSurface = mix(curbCol, paverRoad, tCurb);
-        } else {
-            roadSurface = paverRoad;
-        }
-
-        baseAlbedo = roadSurface;
-
-        // 3D Physical Bump Normal Mapping for individual rounded cobblestones & curbs
-        if (dist < 140.0) {
-            float detailFade = clamp(1.0 - dist / 140.0, 0.0, 1.0);
-            vec3 roadBump = vec3(0.0);
-            if (edgeDist >= 0.16) {
-                // Cobblestone 3D convex rounded top
-                vec2 stoneBevel = -clamp(stoneCell / 0.38, -1.0, 1.0) * (1.0 - mortarJoint) * 0.45;
-                roadBump = vec3(stoneBevel.x, 0.0, stoneBevel.y) * detailFade;
-            } else if (edgeDist >= 0.08) {
-                // Curb bevel towards road
-                float curbBevel = (u < 0.5 ? -1.0 : 1.0) * 0.35;
-                roadBump = vec3(curbBevel, 0.0, 0.0) * detailFade;
+        // Wildflowers blooming along the road borders
+        if (edgeDist < 0.10) {
+            float flowerHash = hash21(floor(FragPos.xz * 3.8));
+            float fDist = length(fract(FragPos.xz * 3.8) - 0.5);
+            if (flowerHash > 0.75 && fDist < 0.32) {
+                float fFade = smoothstep(0.32, 0.10, fDist);
+                vec3 flowerCol;
+                if (flowerHash > 0.91) flowerCol = vec3(0.98, 0.98, 0.98); // White daisy
+                else if (flowerHash > 0.83) flowerCol = vec3(0.98, 0.84, 0.18); // Buttercup yellow
+                else flowerCol = vec3(0.92, 0.28, 0.22); // Red poppy
+                vergeGrass = mix(vergeGrass, flowerCol, fFade * 0.90);
             }
+        }
+
+        // Feathered blend from golden earthen road into meadow grass
+        float edgeBlend = smoothstep(0.015, 0.11, edgeDist);
+        baseAlbedo = mix(vergeGrass, roadCol, edgeBlend);
+
+        // Smooth 3D surface normal: gentle crowned camber and warm organic earth feel
+        if (dist < 140.0) {
+            float detailFade = clamp(1.0 - dist / 140.0, 0.0, 1.0) * edgeBlend;
+            float camberSlope = (u - 0.5) * 0.20;
+            vec3 roadBump = vec3(
+                (noise2D(FragPos.xz * 2.5) - 0.5) * 0.10 + camberSlope * 0.25,
+                0.0,
+                (noise2D(FragPos.xz * 2.5 + vec2(1.7, 3.2)) - 0.5) * 0.10
+            ) * detailFade;
             norm = normalize(norm + roadBump);
         }
     }

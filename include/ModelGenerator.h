@@ -21,6 +21,7 @@ public:
     static Mesh createStripedWindsock(float baseRadius, float tipRadius, float length, int sectors, int numStripes);
     static Mesh createWindmillBlade(float length, float width, const glm::vec3& woodColor, const glm::vec3& sailColor);
     static Mesh createCurvedDirtRoad();
+    static Mesh createVillageWell();
     static Mesh createRusticLanternPost();
     static Mesh createWaypointSignpost();
     static Mesh createHayBale(float radius, float length);

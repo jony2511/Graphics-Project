@@ -579,8 +579,7 @@ int main() {
     // A. Rural Terrain & Dirt Road
     Mesh rollingTerrain = ModelGenerator::createRollingTerrain(1200.0f, 1200.0f, 240);
     Mesh dirtRoad = ModelGenerator::createCurvedDirtRoad();
-    Mesh rusticLantern = ModelGenerator::createRusticLanternPost();
-    Mesh waypointSign = ModelGenerator::createWaypointSignpost();
+    Mesh villageWell = ModelGenerator::createVillageWell();
     Mesh haystackCone = ModelGenerator::createCone(2.2f, 3.2f, 16, glm::vec3(0.86f, 0.74f, 0.32f));
     Mesh haystackBase = ModelGenerator::createCylinder(2.3f, 2.2f, 0.45f, 16, glm::vec3(0.78f, 0.65f, 0.28f));
 
@@ -839,24 +838,21 @@ int main() {
     };
 
     std::vector<glm::vec3> boulderPositions = {
-        { 16.0f, 0.6f, -10.0f}, {-12.0f, 0.5f,  12.0f},
-        { 24.0f, 0.7f,  16.0f}, {-26.0f, 0.8f, -14.0f}
+        // Foreground roadside boulder cluster (matching reference art bottom right)
+        {-22.0f, 0.5f, -22.5f},
+        {-20.5f, 0.7f, -21.0f},
+        {-22.8f, 0.4f, -20.0f},
+        {-19.2f, 0.6f, -19.5f},
+        {-21.0f, 0.9f, -18.2f},
+        // Meadow & pond boulders
+        { 16.0f, 0.6f, -10.0f},
+        {-12.0f, 0.5f,  12.0f},
+        { 24.0f, 0.7f,  16.0f},
+        {-26.0f, 0.8f, -14.0f}
     };
 
-    // Picturesque Countryside Roadside Props
-    struct LanternPostInstance {
-        glm::vec3 pos;
-        float rotY;
-    };
-    std::vector<LanternPostInstance> lanternPosts = {
-        {{-21.5f, 0.0f, -11.0f},  45.0f}, // Foreground scenic entrance bend (in Camera 1 view!)
-        {{ -3.2f, 0.0f,   8.8f}, -15.0f}, // Launchpad entrance gate
-        {{ 12.2f, 0.0f,  29.5f},  55.0f}, // Cottage 1 / Banyan bend
-        {{ 23.5f, 0.0f,  48.0f},  35.0f}, // Village pond bank overlook
-        {{ 33.5f, 0.0f,  74.0f}, -40.0f}  // Homestead 2 & haystacks bend
-    };
-    glm::vec3 waypointSignPos(5.8f, 0.0f, 17.5f);
-    float waypointSignRot = 25.0f;
+    // Traditional Bengali Countryside Well (Matching Reference Art)
+    glm::vec3 villageWellPos(31.0f, 0.0f, 54.0f);
 
     // Frame counter
     double lastTitleUpdate = 0.0;
@@ -1210,11 +1206,8 @@ int main() {
             drawSoftGroundShadow(bn.pos, 2.0f * bn.scale, 1.6f * bn.scale, 1.6f * bn.scale, 0.20f);
         }
 
-        // Roadside Lantern Posts & Waypoint Sign
-        for (const auto& lp : lanternPosts) {
-            drawSoftGroundShadow(lp.pos, 2.6f, 0.65f, 0.65f * (1.0f + 0.15f * sunStretch), 0.22f);
-        }
-        drawSoftGroundShadow(waypointSignPos, 2.2f, 0.55f, 0.55f * (1.0f + 0.15f * sunStretch), 0.22f);
+        // Traditional Village Well Shadow
+        drawSoftGroundShadow(villageWellPos, 1.4f, 1.6f, 1.6f * (1.0f + 0.12f * sunStretch), 0.25f);
 
         // H. Dynamic Ground Shadows for All Hot Air Balloons (Proportional to altitude)
         auto drawBalloonShadow = [&](const glm::vec3& bPos, float bScale) {
@@ -1431,20 +1424,11 @@ int main() {
             rusticBoulder.draw();
         }
 
-        // I. Roadside Scenic Props: Rustic Lantern Posts & Waypoint Signpost
-        for (const auto& lp : lanternPosts) {
-            float y = ModelGenerator::getTerrainHeight(lp.pos.x, lp.pos.z);
-            model = glm::translate(glm::mat4(1.0f), glm::vec3(lp.pos.x, y, lp.pos.z));
-            model = glm::rotate(model, glm::radians(lp.rotY), glm::vec3(0, 1, 0));
-            sceneShader.setMat4("uModel", model);
-            rusticLantern.draw();
-        }
-
-        float wy = ModelGenerator::getTerrainHeight(waypointSignPos.x, waypointSignPos.z);
-        model = glm::translate(glm::mat4(1.0f), glm::vec3(waypointSignPos.x, wy, waypointSignPos.z));
-        model = glm::rotate(model, glm::radians(waypointSignRot), glm::vec3(0, 1, 0));
+        // I. Traditional Village Well (Matching Reference Art)
+        float wellY = ModelGenerator::getTerrainHeight(villageWellPos.x, villageWellPos.z);
+        model = glm::translate(glm::mat4(1.0f), glm::vec3(villageWellPos.x, wellY, villageWellPos.z));
         sceneShader.setMat4("uModel", model);
-        waypointSign.draw();
+        villageWell.draw();
 
         // ==========================================
         // 6. Draw Clouds & Flocking Birds
