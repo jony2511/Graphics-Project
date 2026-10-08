@@ -163,7 +163,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     lastX = xpos;
     lastY = ypos;
 
-    if (camera.mode == CAMERA_FREE_FLY && rightMousePressed) {
+    if ((camera.mode == CAMERA_FREE_FLY || camera.mode == CAMERA_BASKET_POV) && rightMousePressed) {
         camera.processMouseMovement(xoffset, yoffset);
     }
 }
@@ -271,6 +271,7 @@ void processInput(GLFWwindow* window) {
         balloonPosition = glm::vec3(0.0f, 4.2f, 0.0f);
         balloonVelocity = glm::vec3(0.0f);
         simulationTime = 0.0f;
+        camera.hasUserRotatedBasketView = false;
         std::cout << "[SCENE] Reset to Launch Position\n";
         rPressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_R) == GLFW_RELEASE) {
@@ -392,8 +393,10 @@ int main() {
 
     // 5. Generate Procedural 3D Meshes
     // A. Rural Terrain & Dirt Road
-    Mesh rollingTerrain = ModelGenerator::createRollingTerrain(260.0f, 260.0f, 80);
+    Mesh rollingTerrain = ModelGenerator::createRollingTerrain(1200.0f, 1200.0f, 120);
     Mesh dirtRoad = ModelGenerator::createCurvedDirtRoad();
+    Mesh haystackCone = ModelGenerator::createCone(2.2f, 3.2f, 16, glm::vec3(0.86f, 0.74f, 0.32f));
+    Mesh haystackBase = ModelGenerator::createCylinder(2.3f, 2.2f, 0.45f, 16, glm::vec3(0.78f, 0.65f, 0.28f));
 
     // B. Launch Platform, Fences & Mast
     Mesh launchPlatform = ModelGenerator::createCube(16.0f, 0.4f, 16.0f, glm::vec3(0.56f, 0.38f, 0.24f));
@@ -460,6 +463,34 @@ int main() {
         {{ 4.4f, -0.7f,  -4.0f}, 1.4f}
     };
 
+    // Multi-Homestead Rural Village Settlements (পূর্ণাঙ্গ শ্যামল গ্রাম)
+    struct VillageHutInstance {
+        glm::vec3 pos;
+        float rotY;
+        float scale;
+    };
+    std::vector<VillageHutInstance> villageHuts = {
+        {{ 21.0f, 0.0f,  31.0f}, -28.0f, 1.00f},  // Homestead 1 (Main cottage near pond)
+        {{ 38.0f, 0.0f,  68.0f},  18.0f, 1.05f},  // Homestead 2 (Farmhouse along northern road)
+        {{-18.0f, 0.0f,  46.0f}, -55.0f, 0.95f},  // Homestead 3 (Cottage across the meadow trail)
+        {{ 16.0f, 0.0f,  96.0f},  35.0f, 0.92f},  // Homestead 4 (North grove dwelling)
+        {{-30.0f, 0.0f,  82.0f},  42.0f, 0.88f}   // Homestead 5 (West meadow homestead)
+    };
+
+    // Traditional Bengali Golden Straw Haystacks (খড়ের গাদা)
+    struct HaystackInstance {
+        glm::vec3 pos;
+        float scale;
+    };
+    std::vector<HaystackInstance> haystacks = {
+        {{ 27.5f, 0.0f,  34.0f}, 1.00f},
+        {{ 44.0f, 0.0f,  65.0f}, 1.15f},
+        {{ 46.5f, 0.0f,  69.0f}, 0.88f},
+        {{-14.0f, 0.0f,  50.0f}, 1.05f},
+        {{ 22.0f, 0.0f,  98.0f}, 1.10f},
+        {{-25.0f, 0.0f,  86.0f}, 0.95f}
+    };
+
     // Lush Banyan & Leafy Village Shade Trees
     struct BanyanInstance {
         glm::vec3 pos;
@@ -472,7 +503,12 @@ int main() {
         {{-42.0f, 0.0f,  32.0f}, 1.35f,  45.0f}, // Far meadow
         {{ 35.0f, 0.0f,  18.0f}, 1.15f, -70.0f}, // Near the pond bank
         {{ 12.0f, 0.0f,  68.0f}, 1.30f,  25.0f}, // Background grove
-        {{-26.0f, 0.0f, -18.0f}, 1.10f,  80.0f}  // Near launch platform edge
+        {{-26.0f, 0.0f, -18.0f}, 1.10f,  80.0f}, // Near launch platform edge
+        {{ 45.0f, 0.0f,  76.0f}, 1.25f,  30.0f}, // Homestead 2 grove
+        {{-24.0f, 0.0f,  56.0f}, 1.15f, -50.0f}, // Homestead 3 grove
+        {{ 24.0f, 0.0f, 108.0f}, 1.30f,  40.0f}, // Homestead 4 orchard
+        {{-38.0f, 0.0f,  92.0f}, 1.20f, -20.0f}, // West grove
+        {{  6.0f, 0.0f, 135.0f}, 1.35f,  65.0f}  // Deep landscape shade tree
     };
 
     // Traditional Bengali Banana Tree Clusters (কলা বাগান)
@@ -482,7 +518,7 @@ int main() {
         float rotY;
     };
     std::vector<BananaInstance> bananaTrees = {
-        // Cluster behind and to the right of the cottage
+        // Cluster behind and to the right of Homestead 1
         {{ 27.5f, 0.0f,  33.0f}, 1.10f,  25.0f},
         {{ 28.8f, 0.0f,  35.2f}, 0.95f, -40.0f},
         {{ 26.2f, 0.0f,  36.5f}, 1.20f,  75.0f},
@@ -494,7 +530,16 @@ int main() {
         {{ 11.2f, 0.0f,  25.5f}, 1.25f,  30.0f},
         // Cluster in left village garden
         {{-14.5f, 0.0f,  28.0f}, 1.10f,  45.0f},
-        {{-16.0f, 0.0f,  30.2f}, 1.20f, -65.0f}
+        {{-16.0f, 0.0f,  30.2f}, 1.20f, -65.0f},
+        // Cluster around Homestead 2
+        {{ 34.0f, 0.0f,  66.0f}, 1.10f,  20.0f},
+        {{ 35.5f, 0.0f,  68.2f}, 0.95f, -30.0f},
+        // Cluster around Homestead 3
+        {{-21.0f, 0.0f,  44.0f}, 1.15f,  50.0f},
+        {{-22.5f, 0.0f,  46.5f}, 1.00f, -70.0f},
+        // Cluster around Homestead 4
+        {{ 12.0f, 0.0f,  94.0f}, 1.05f,  35.0f},
+        {{ 13.5f, 0.0f,  96.5f}, 1.20f, -45.0f}
     };
 
     // Dense Green Bush & Shrub Clumps (গ্রামের সবুজ ঝোপঝাড়)
@@ -503,7 +548,7 @@ int main() {
         float scale;
     };
     std::vector<BushInstance> villageBushes = {
-        // Cottage perimeter & garden
+        // Homestead 1 perimeter & garden
         {{ 16.5f, 0.0f,  30.5f}, 1.10f},
         {{ 17.5f, 0.0f,  34.0f}, 1.25f},
         {{ 25.5f, 0.0f,  28.0f}, 0.95f},
@@ -522,10 +567,19 @@ int main() {
         {{ 36.5f, 0.0f,  16.5f}, 1.25f},
         // Water edge
         {{ 30.0f, 0.0f,  40.0f}, 1.15f},
-        {{ 40.0f, 0.0f,  36.0f}, 1.20f}
+        {{ 40.0f, 0.0f,  36.0f}, 1.20f},
+        // Homestead 2 & 3 perimeter
+        {{ 32.0f, 0.0f,  64.0f}, 1.15f},
+        {{ 42.0f, 0.0f,  72.0f}, 1.20f},
+        {{-15.0f, 0.0f,  42.0f}, 1.10f},
+        {{-22.0f, 0.0f,  50.0f}, 1.25f},
+        // Homestead 4 & 5 perimeter
+        {{ 12.0f, 0.0f,  90.0f}, 1.15f},
+        {{ 20.0f, 0.0f,  98.0f}, 1.20f},
+        {{-26.0f, 0.0f,  78.0f}, 1.10f}
     };
 
-    // Horizon Coconut Palms (Dense silhouette along the horizon)
+    // Coconut Palms Scattered in Scenic Groves & Field Borders
     struct HorizonPalm {
         glm::vec3 pos;
         float scale;
@@ -533,32 +587,30 @@ int main() {
         bool isTall;
     };
     std::vector<HorizonPalm> horizonPalms = {
-        {{-85.0f, 0.0f,  75.0f}, 1.15f,  20.0f, true},
-        {{-72.0f, 0.0f,  78.0f}, 0.95f, -45.0f, false},
-        {{-60.0f, 0.0f,  82.0f}, 1.25f,  60.0f, true},
-        {{-48.0f, 0.0f,  85.0f}, 1.05f, -15.0f, false},
-        {{-35.0f, 0.0f,  88.0f}, 1.20f,  40.0f, true},
-        {{-22.0f, 0.0f,  86.0f}, 0.90f, -80.0f, false},
-        {{-10.0f, 0.0f,  89.0f}, 1.30f,  15.0f, true},
-        {{  2.0f, 0.0f,  92.0f}, 1.10f, -30.0f, false},
-        {{ 14.0f, 0.0f,  90.0f}, 1.25f,  50.0f, true},
-        {{ 26.0f, 0.0f,  88.0f}, 0.95f, -65.0f, false},
-        {{ 38.0f, 0.0f,  86.0f}, 1.20f,  25.0f, true},
-        {{ 50.0f, 0.0f,  84.0f}, 1.05f, -40.0f, false},
-        {{ 62.0f, 0.0f,  82.0f}, 1.15f,  70.0f, true},
-        {{ 75.0f, 0.0f,  80.0f}, 0.90f, -20.0f, false},
-        {{ 88.0f, 0.0f,  78.0f}, 1.25f,  35.0f, true},
-        {{100.0f, 0.0f,  76.0f}, 1.00f, -50.0f, false},
-        // Mid-distance groves
-        {{-52.0f, 0.0f,  55.0f}, 1.10f,  10.0f, true},
-        {{-38.0f, 0.0f,  48.0f}, 0.85f, -70.0f, false},
+        // Groves along pond and east meadows
+        {{ 55.0f, 0.0f,  32.0f}, 1.15f,  20.0f, true},
+        {{ 62.0f, 0.0f,  40.0f}, 0.95f, -45.0f, false},
         {{ 58.0f, 0.0f,  52.0f}, 1.05f,  45.0f, true},
         {{ 70.0f, 0.0f,  58.0f}, 0.90f, -35.0f, false},
-        // Opposite side groves
-        {{-65.0f, 0.0f, -45.0f}, 1.15f,  30.0f, true},
-        {{-45.0f, 0.0f, -55.0f}, 1.00f, -25.0f, false},
-        {{ 45.0f, 0.0f, -50.0f}, 1.20f,  55.0f, true},
-        {{ 65.0f, 0.0f, -42.0f}, 0.95f, -15.0f, false}
+        {{ 65.0f, 0.0f,  82.0f}, 1.20f,  30.0f, true},
+        {{ 78.0f, 0.0f,  95.0f}, 1.10f, -60.0f, false},
+        // West village border groves
+        {{-35.0f, 0.0f,  38.0f}, 1.15f,  35.0f, true},
+        {{-48.0f, 0.0f,  52.0f}, 1.00f, -25.0f, false},
+        {{-52.0f, 0.0f,  70.0f}, 1.25f,  55.0f, true},
+        {{-60.0f, 0.0f,  88.0f}, 1.10f, -40.0f, false},
+        {{-42.0f, 0.0f, 105.0f}, 1.20f,  20.0f, true},
+        // Distant north horizon groves
+        {{-20.0f, 0.0f, 130.0f}, 1.30f,  15.0f, true},
+        {{  0.0f, 0.0f, 135.0f}, 1.15f, -30.0f, false},
+        {{ 18.0f, 0.0f, 132.0f}, 1.25f,  50.0f, true},
+        {{ 35.0f, 0.0f, 128.0f}, 1.05f, -65.0f, false},
+        {{ 52.0f, 0.0f, 134.0f}, 1.20f,  25.0f, true},
+        // South meadows near launchpad
+        {{-45.0f, 0.0f, -35.0f}, 1.10f,  30.0f, true},
+        {{-25.0f, 0.0f, -45.0f}, 0.95f, -20.0f, false},
+        {{ 35.0f, 0.0f, -40.0f}, 1.20f,  45.0f, true},
+        {{ 55.0f, 0.0f, -30.0f}, 1.05f, -50.0f, false}
     };
 
     // Dense Foreground & Trailside Reed Clusters
@@ -941,12 +993,25 @@ int main() {
         // ==========================================
         // 5. Draw Lush Green Rural Village Environment (সবুজ শ্যামল গ্রাম)
         // ==========================================
-        // A. Traditional Village Cottage / Hut with Terracotta Hip Roof
-        glm::vec3 hutPos(21.0f, 0.0f, 31.0f);
-        model = glm::translate(glm::mat4(1.0f), hutPos);
-        model = glm::rotate(model, glm::radians(-28.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        sceneShader.setMat4("uModel", model);
-        villageHut.draw();
+        // A. Traditional Village Cottages / Huts with Terracotta Hip Roof
+        for (const auto& hut : villageHuts) {
+            model = glm::translate(glm::mat4(1.0f), hut.pos);
+            model = glm::rotate(model, glm::radians(hut.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(hut.scale));
+            sceneShader.setMat4("uModel", model);
+            villageHut.draw();
+        }
+
+        // B. Traditional Golden Straw Haystacks (খড়ের গাদা)
+        for (const auto& hs : haystacks) {
+            model = glm::translate(glm::mat4(1.0f), hs.pos);
+            model = glm::scale(model, glm::vec3(hs.scale));
+            sceneShader.setMat4("uModel", model);
+            haystackBase.draw();
+            model = glm::translate(model, glm::vec3(0.0f, 0.45f, 0.0f));
+            sceneShader.setMat4("uModel", model);
+            haystackCone.draw();
+        }
 
         // B. Large Spreading Banyan / Mango Shade Trees (Shady Village Canopy)
         for (const auto& bt : banyanTrees) {

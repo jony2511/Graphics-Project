@@ -266,11 +266,28 @@ static float getTerrainHeight(float x, float z) {
     float weight = std::clamp((dist - 16.0f) / 42.0f, 0.0f, 1.0f);
     weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep
 
-    float h1 = 2.2f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
-    float h2 = 1.4f * std::sin(x * 0.048f + 1.2f) * std::sin(z * 0.042f + 0.7f);
-    float h3 = 0.8f * std::cos(dist * 0.018f);
+    float h1 = 2.0f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
+    float h2 = 1.2f * std::sin(x * 0.048f + 1.2f) * std::sin(z * 0.042f + 0.7f);
+    float h3 = 0.6f * std::cos(dist * 0.018f);
+    float baseH = weight * (h1 + h2 + h3);
 
-    return weight * (h1 + h2 + h3);
+    // Natural pond basin depression around (46, 36)
+    float distPond = std::sqrt((x - 46.0f) * (x - 46.0f) + (z - 36.0f) * (z - 36.0f));
+    if (distPond < 20.0f) {
+        float pondFactor = std::clamp(distPond / 20.0f, 0.0f, 1.0f);
+        baseH = baseH * pondFactor - (1.0f - pondFactor) * 0.20f;
+    }
+
+    // Majestic distant rolling hill ridges along the outer perimeter (dist > 160m to 600m)
+    if (dist > 160.0f) {
+        float hillWeight = std::clamp((dist - 160.0f) / 180.0f, 0.0f, 1.0f);
+        hillWeight = hillWeight * hillWeight * (3.0f - 2.0f * hillWeight);
+        float ridge1 = 26.0f * std::pow(std::max(0.0f, std::sin(x * 0.007f + 1.2f) * std::cos(z * 0.006f - 0.9f)), 1.7f);
+        float ridge2 = 16.0f * std::sin(dist * 0.009f + 1.5f) * std::cos(x * 0.004f);
+        baseH += hillWeight * (ridge1 + ridge2);
+    }
+
+    return baseH;
 }
 
 Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivisions) {
@@ -323,6 +340,14 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
             // Elevation and slope modulation for natural shading
             float slopeFactor = glm::clamp(norm.y, 0.75f, 1.0f);
             vertColor *= (0.90f + 0.10f * slopeFactor);
+
+            // Subtle atmospheric color tint for distant horizon ridges
+            float dFromCenter = std::sqrt(posX * posX + posZ * posZ);
+            if (dFromCenter > 200.0f) {
+                float horizonHaze = std::clamp((dFromCenter - 200.0f) / 380.0f, 0.0f, 1.0f);
+                glm::vec3 distantRidgeGreen(0.14f, 0.44f, 0.22f);
+                vertColor = glm::mix(vertColor, distantRidgeGreen, horizonHaze * 0.60f);
+            }
 
             vertices.push_back({{posX, posY, posZ}, norm, vertColor, {(float)x / subdivisions, (float)z / subdivisions}});
         }
@@ -509,8 +534,8 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    const int numSteps = 54;
-    const float roadWidth = 3.2f;
+    const int numSteps = 140;
+    const float roadWidth = 3.6f;
 
     // Natural rural earthen footpath with lush green encroaching borders
     glm::vec3 pathCenter(0.54f, 0.46f, 0.34f);  // Light beaten earth track
@@ -519,14 +544,14 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
 
     for (int i = 0; i <= numSteps; ++i) {
         float t = (float)i / (float)numSteps;
-        // Natural curve winding past the village hut front porch
-        float z = 6.0f + t * 92.0f;
-        float x = 20.0f * std::sin(t * (float)M_PI * 1.1f) + 3.0f * std::sin(t * 5.0f);
-        float y = getTerrainHeight(x, z) + 0.05f; // Raised slightly above terrain
+        // Natural winding village path from launchpad all the way past the village settlements
+        float z = -12.0f + t * 160.0f; // -12m to 148m
+        float x = 22.0f * std::sin(t * (float)M_PI * 1.8f) + 4.0f * std::sin(t * 6.0f);
+        float y = getTerrainHeight(x, z) + 0.06f; // Raised slightly above terrain
 
         // Tangent & Normal
-        float dz = 92.0f;
-        float dx = 22.0f * (float)M_PI * std::cos(t * (float)M_PI * 1.1f) + 15.0f * std::cos(t * 5.0f);
+        float dz = 160.0f;
+        float dx = 22.0f * (float)M_PI * 1.8f * std::cos(t * (float)M_PI * 1.8f) + 24.0f * std::cos(t * 6.0f);
         glm::vec3 tangent = glm::normalize(glm::vec3(dx, 0.0f, dz));
         glm::vec3 side = glm::normalize(glm::vec3(-tangent.z, 0.0f, tangent.x));
         glm::vec3 norm(0.0f, 1.0f, 0.0f);
@@ -539,10 +564,10 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
         glm::vec3 p3 = glm::vec3(x, y - 0.02f, z) + side * (wHalf * 0.5f);
         glm::vec3 p4 = glm::vec3(x, y, z) + side * wHalf;
 
-        vertices.push_back({p0, norm, pathGrass,  {0.00f, t}});
-        vertices.push_back({p1, norm, pathRut,    {0.25f, t}});
-        vertices.push_back({p2, norm, pathCenter, {0.50f, t}});
-        vertices.push_back({p3, norm, pathRut,    {0.75f, t}});
+        vertices.push_back({p0, norm, pathGrass,  {0.00f, t * 8.0f}});
+        vertices.push_back({p1, norm, pathRut,    {0.25f, t * 8.0f}});
+        vertices.push_back({p2, norm, pathCenter, {0.50f, t * 8.0f}});
+        vertices.push_back({p3, norm, pathRut,    {0.75f, t * 8.0f}});
         vertices.push_back({p4, norm, pathGrass,  {1.00f, t}});
     }
 

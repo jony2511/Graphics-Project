@@ -43,6 +43,7 @@ public:
     float movementSpeed;
     float turnSpeed;
     float fov;
+    bool hasUserRotatedBasketView;
 
     Camera(glm::vec3 startPos = glm::vec3(-18.0f, 13.0f, -32.0f));
 

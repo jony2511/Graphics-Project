@@ -120,9 +120,9 @@ void main() {
 
     // --- Natural Soft Distance Fog & Horizon Haze ---
     float dist = length(uViewPos - FragPos);
-    float fogStart = 70.0;
-    float fogEnd = 240.0;
-    float fogFactor = clamp((dist - fogStart) / (fogEnd - fogStart), 0.0, 0.75);
+    float fogStart = 160.0;
+    float fogEnd = 540.0;
+    float fogFactor = clamp((dist - fogStart) / (fogEnd - fogStart), 0.0, 1.0);
     vec3 fogColor = uSkyColor;
     result = mix(result, fogColor, fogFactor * uFogDensity);
 

@@ -11,7 +11,8 @@ Camera::Camera(glm::vec3 startPos)
       pitch(-13.0f),
       movementSpeed(15.0f),
       turnSpeed(65.0f),
-      fov(45.0f) {
+      fov(45.0f),
+      hasUserRotatedBasketView(false) {
     updateCameraVectors();
 }
 
@@ -32,6 +33,11 @@ void Camera::setMode(CameraMode newMode) {
         updateCameraVectors();
     } else if (mode == CAMERA_FREE_FLY) {
         // Retain current position, keep vectors active
+        updateCameraVectors();
+    } else if (mode == CAMERA_BASKET_POV) {
+        hasUserRotatedBasketView = false;
+        yaw = 68.0f;
+        pitch = -18.0f;
         updateCameraVectors();
     }
 }
@@ -59,11 +65,17 @@ void Camera::update(float deltaTime, const glm::vec3& balloonPos) {
             break;
         }
         case CAMERA_BASKET_POV: {
-            // Positioned directly inside the basket looking forward across the village
-            position = balloonPos + glm::vec3(0.0f, -2.2f, 0.0f);
-            front = glm::vec3(0.35f, 0.02f, 0.93f);
-            right = glm::normalize(glm::cross(front, worldUp));
-            up = glm::normalize(glm::cross(right, front));
+            // Positioned inside the wicker basket at natural eye level above the rim
+            position = balloonPos + glm::vec3(0.0f, -0.05f, 0.0f);
+
+            // Natural passenger perspective: as altitude increases, smoothly tilt gaze downwards
+            // so the magnificent village landscape, pond, roads, and cottages remain beautifully framed!
+            if (!hasUserRotatedBasketView) {
+                float altRatio = glm::clamp((balloonPos.y - 4.2f) / 34.0f, 0.0f, 1.0f);
+                pitch = glm::mix(-14.0f, -28.0f, altRatio);
+                yaw = 68.0f;
+            }
+            updateCameraVectors();
             break;
         }
         case CAMERA_FREE_FLY: {
@@ -115,7 +127,11 @@ void Camera::processKeyboard(CameraMovement direction, float deltaTime) {
 }
 
 void Camera::processMouseMovement(float xoffset, float yoffset, bool constrainPitch) {
-    if (mode != CAMERA_FREE_FLY) return;
+    if (mode != CAMERA_FREE_FLY && mode != CAMERA_BASKET_POV) return;
+
+    if (mode == CAMERA_BASKET_POV) {
+        hasUserRotatedBasketView = true;
+    }
 
     float sensitivity = 0.1f;
     xoffset *= sensitivity;
