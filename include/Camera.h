@@ -43,7 +43,7 @@ public:
     float movementSpeed;
     float turnSpeed;
     float fov;
-    bool hasUserRotatedBasketView;
+    bool is360ModeActive;
 
     Camera(glm::vec3 startPos = glm::vec3(-18.0f, 13.0f, -32.0f));
 
@@ -51,6 +51,10 @@ public:
     glm::mat4 getProjectionMatrix(float aspectRatio) const;
 
     void setMode(CameraMode newMode);
+    void toggle360Mode();
+    bool is360Active() const { return is360ModeActive; }
+    void set360Mode(bool active);
+    void resetOrientation();
     void update(float deltaTime, const glm::vec3& balloonPos, float swayRoll = 0.0f, float swayPitch = 0.0f);
     void processKeyboard(CameraMovement direction, float deltaTime);
     void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);

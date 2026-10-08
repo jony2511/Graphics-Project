@@ -168,7 +168,8 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
 
     if (camera.mode == CAMERA_FREE_FLY && rightMousePressed) {
         camera.processMouseMovement(xoffset, yoffset);
-    } else if (camera.mode == CAMERA_BASKET_POV && isDragging) {
+    } else if (isDragging) {
+        camera.set360Mode(true);
         camera.processMouseMovement(xoffset, yoffset);
     }
 }
@@ -279,11 +280,23 @@ void processInput(GLFWwindow* window) {
         balloonPosition = glm::vec3(0.0f, 4.2f, 0.0f);
         balloonVelocity = glm::vec3(0.0f);
         simulationTime = 0.0f;
-        camera.hasUserRotatedBasketView = false;
+        camera.set360Mode(false);
         std::cout << "[SCENE] Reset to Launch Position\n";
         rPressed = true;
     } else if (glfwGetKey(window, GLFW_KEY_R) == GLFW_RELEASE) {
         rPressed = false;
+    }
+
+    // G: Toggle 360-Degree Free Look Mode (in all camera modes)
+    static bool gPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS && !gPressed) {
+        camera.toggle360Mode();
+        std::cout << "[360 VIEW] 360-Degree Free Look "
+                  << (camera.is360Active() ? "ENABLED (Drag Mouse or Q/E/Z/C to look 360 deg in any mode)" : "DISABLED (Locked to default camera tracking)")
+                  << "\n";
+        gPressed = true;
+    } else if (glfwGetKey(window, GLFW_KEY_G) == GLFW_RELEASE) {
+        gPressed = false;
     }
 
     // H: Toggle HUD Text Overlay
@@ -338,29 +351,30 @@ void processInput(GLFWwindow* window) {
             camera.processKeyboard(CAM_DOWN, deltaTime);
     }
 
-    // 360-degree head look controls in Basket POV (Q/E pan, Z/C tilt)
-    if (camera.mode == CAMERA_BASKET_POV) {
+    // 360-degree pan & tilt look controls (Q/E yaw pan, Z/C pitch tilt) across all camera modes
+    if (camera.mode != CAMERA_FREE_FLY) {
         float rotRate = 65.0f * deltaTime;
+        bool keyAction = false;
         if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
             camera.yaw -= rotRate;
-            camera.hasUserRotatedBasketView = true;
-            camera.updateCameraVectors();
+            keyAction = true;
         }
         if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
             camera.yaw += rotRate;
-            camera.hasUserRotatedBasketView = true;
-            camera.updateCameraVectors();
+            keyAction = true;
         }
         if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
             camera.pitch -= rotRate;
             if (camera.pitch < -89.0f) camera.pitch = -89.0f;
-            camera.hasUserRotatedBasketView = true;
-            camera.updateCameraVectors();
+            keyAction = true;
         }
         if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
             camera.pitch += rotRate;
             if (camera.pitch > 89.0f) camera.pitch = 89.0f;
-            camera.hasUserRotatedBasketView = true;
+            keyAction = true;
+        }
+        if (keyAction) {
+            camera.set360Mode(true);
             camera.updateCameraVectors();
         }
     }
@@ -410,7 +424,8 @@ int main() {
     std::cout << "  * F                        : Toggle Burner Flame (Ascend / Descend)\n";
     std::cout << "  * SPACE                    : Pause / Resume Simulation\n";
     std::cout << "  * 1, 2, 3, 4               : Switch Camera Modes (Overview, Follow, Free-fly, Basket POV)\n";
-    std::cout << "  * Mode 4 (Basket POV) 360  : Click & Drag (Left / Right Mouse) or Q / E / Z / C to look 360 deg\n";
+    std::cout << "  * G                        : Toggle 360-Degree Free Look (ON / OFF in All Camera Modes)\n";
+    std::cout << "  * 360 Look Controls        : Click & Drag (Left / Right Mouse) or Q / E / Z / C (All Modes)\n";
     std::cout << "  * L                        : Cycle Day / Sunset / Night / Dawn Lighting\n";
     std::cout << "  * R                        : Reset Balloon to Launch Position\n";
     std::cout << "  * H                        : Toggle HUD Dashboard\n";
@@ -861,6 +876,7 @@ int main() {
             ss << "Hot Air Balloon 3D | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
                << " | Steer: [Arrows]"
                << " | Burner: [" << (burnerActive ? "FIRE (F)" : "OFF (F)") << "]"
+               << " | 360: [" << (camera.is360Active() ? "ON (G)" : "OFF (G)") << "]"
                << " | Cam: " << camera.getModeName()
                << " | " << getLightingModeName(currentLightMode) << " [L]"
                << " | FPS: " << static_cast<int>(fps);

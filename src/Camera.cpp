@@ -12,7 +12,7 @@ Camera::Camera(glm::vec3 startPos)
       movementSpeed(15.0f),
       turnSpeed(65.0f),
       fov(45.0f),
-      hasUserRotatedBasketView(false) {
+      is360ModeActive(false) {
     updateCameraVectors();
 }
 
@@ -24,6 +24,34 @@ glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {
     return glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 1000.0f);
 }
 
+void Camera::toggle360Mode() {
+    is360ModeActive = !is360ModeActive;
+    if (!is360ModeActive) {
+        resetOrientation();
+    }
+}
+
+void Camera::set360Mode(bool active) {
+    is360ModeActive = active;
+    if (!is360ModeActive) {
+        resetOrientation();
+    }
+}
+
+void Camera::resetOrientation() {
+    if (mode == CAMERA_OVERVIEW) {
+        yaw = 62.0f;
+        pitch = -13.0f;
+    } else if (mode == CAMERA_FOLLOW) {
+        yaw = 90.0f;
+        pitch = -5.0f;
+    } else if (mode == CAMERA_BASKET_POV) {
+        yaw = 68.0f;
+        pitch = -10.0f;
+    }
+    updateCameraVectors();
+}
+
 void Camera::setMode(CameraMode newMode) {
     mode = newMode;
     if (mode == CAMERA_OVERVIEW) {
@@ -31,11 +59,13 @@ void Camera::setMode(CameraMode newMode) {
         yaw = 62.0f;
         pitch = -13.0f;
         updateCameraVectors();
+    } else if (mode == CAMERA_FOLLOW) {
+        yaw = 90.0f;
+        pitch = -5.0f;
+        updateCameraVectors();
     } else if (mode == CAMERA_FREE_FLY) {
-        // Retain current position, keep vectors active
         updateCameraVectors();
     } else if (mode == CAMERA_BASKET_POV) {
-        hasUserRotatedBasketView = false;
         yaw = 68.0f;
         pitch = -10.0f;
         updateCameraVectors();
@@ -48,38 +78,58 @@ void Camera::update(float deltaTime, const glm::vec3& balloonPos, float swayRoll
     switch (mode) {
         case CAMERA_OVERVIEW: {
             position = glm::vec3(-18.0f, 13.0f, -32.0f);
-            glm::vec3 target = balloonPos + glm::vec3(5.0f, 2.0f, 12.0f);
-            front = glm::normalize(target - position);
-            right = glm::normalize(glm::cross(front, worldUp));
-            up = glm::normalize(glm::cross(right, front));
+            if (is360ModeActive) {
+                // Free 360 panoramic look from scenic hill station
+                updateCameraVectors();
+            } else {
+                // Default auto-tracking the balloon
+                glm::vec3 target = balloonPos + glm::vec3(5.0f, 2.0f, 12.0f);
+                front = glm::normalize(target - position);
+                right = glm::normalize(glm::cross(front, worldUp));
+                up = glm::normalize(glm::cross(right, front));
+                pitch = glm::degrees(std::asin(glm::clamp(front.y, -0.999f, 0.999f)));
+                yaw = glm::degrees(std::atan2(front.z, front.x));
+            }
             break;
         }
         case CAMERA_FOLLOW: {
-            // Positioned behind and slightly above the balloon, looking forward towards the village
-            glm::vec3 offset(0.0f, 5.0f, -22.0f);
-            position = balloonPos + offset;
-            glm::vec3 lookTarget = balloonPos + glm::vec3(0.0f, 2.0f, 12.0f);
-            front = glm::normalize(lookTarget - position);
-            right = glm::normalize(glm::cross(front, worldUp));
-            up = glm::normalize(glm::cross(right, front));
+            if (is360ModeActive) {
+                // 360-degree orbital cinematic chase camera circling around the balloon
+                float orbitDist = 22.0f;
+                updateCameraVectors();
+                position = balloonPos - front * orbitDist + glm::vec3(0.0f, 2.5f, 0.0f);
+            } else {
+                // Standard forward chase camera locked behind balloon
+                glm::vec3 offset(0.0f, 5.0f, -22.0f);
+                position = balloonPos + offset;
+                glm::vec3 lookTarget = balloonPos + glm::vec3(0.0f, 2.0f, 12.0f);
+                front = glm::normalize(lookTarget - position);
+                right = glm::normalize(glm::cross(front, worldUp));
+                up = glm::normalize(glm::cross(right, front));
+                pitch = glm::degrees(std::asin(glm::clamp(front.y, -0.999f, 0.999f)));
+                yaw = glm::degrees(std::atan2(front.z, front.x));
+            }
             break;
         }
         case CAMERA_BASKET_POV: {
             // Standing passenger inside the wicker basket:
-            // Basket rim is at +0.30m. Eye level is at +0.55m (25cm ABOVE the rim), standing near the front rail (Z = +0.35m).
+            // Basket rim is at +0.30m. Eye level is at +0.58m (28cm ABOVE the rim), standing near the front rail (Z = +0.32m).
             glm::vec3 localEye(0.0f, 0.58f, 0.32f);
             glm::mat4 bTransform = glm::rotate(glm::mat4(1.0f), glm::radians(swayRoll), glm::vec3(0, 0, 1));
             bTransform = glm::rotate(bTransform, glm::radians(swayPitch), glm::vec3(1, 0, 0));
             glm::vec3 worldEyeOffset = glm::vec3(bTransform * glm::vec4(localEye, 1.0f));
             position = balloonPos + worldEyeOffset;
 
-            // Default gaze: looks smoothly over the front rim towards the village
-            if (!hasUserRotatedBasketView) {
+            if (is360ModeActive) {
+                // Free 360 passenger head rotation in all directions
+                updateCameraVectors();
+            } else {
+                // Default gaze: looks smoothly over the front rim towards the village
                 float altRatio = glm::clamp((balloonPos.y - 4.2f) / 120.0f, 0.0f, 1.0f);
                 pitch = glm::mix(-10.0f, -25.0f, altRatio);
                 yaw = 68.0f;
+                updateCameraVectors();
             }
-            updateCameraVectors();
             break;
         }
         case CAMERA_FREE_FLY: {
@@ -131,11 +181,7 @@ void Camera::processKeyboard(CameraMovement direction, float deltaTime) {
 }
 
 void Camera::processMouseMovement(float xoffset, float yoffset, bool constrainPitch) {
-    if (mode != CAMERA_FREE_FLY && mode != CAMERA_BASKET_POV) return;
-
-    if (mode == CAMERA_BASKET_POV) {
-        hasUserRotatedBasketView = true;
-    }
+    if (mode != CAMERA_FREE_FLY && !is360ModeActive) return;
 
     float sensitivity = 0.1f;
     xoffset *= sensitivity;
