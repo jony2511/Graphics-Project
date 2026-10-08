@@ -259,22 +259,35 @@ Mesh ModelGenerator::createBalloonEnvelope(float radius, float height, int rings
 
 float ModelGenerator::getTerrainHeight(float x, float z) {
     float dist = std::sqrt(x * x + z * z);
-    // Level rural plain covering the launchpad, village settlements, cottages,
-    // orchards, dirt road, pond, and full camera viewing perspective (dist <= 180m).
-    // Zero elevation differences guarantees coplanar quads, 100% eliminating
-    // all polygon creases, diagonal seams, and triangle facets!
-    if (dist <= 180.0f) {
-        return 0.0f;
+    // Flat central area for launchpad platform and village clearing
+    if (dist < 26.0f) return 0.0f;
+
+    // Gentle natural rural meadow plain with subtle drainage knolls
+    float weight = std::clamp((dist - 26.0f) / 48.0f, 0.0f, 1.0f);
+    weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep Hermite C1
+
+    float h1 = 2.0f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
+    float h2 = 1.2f * std::sin(x * 0.048f + 1.2f) * std::sin(z * 0.042f + 0.7f);
+    float h3 = 0.6f * std::cos(dist * 0.018f);
+    float baseH = weight * (h1 + h2 + h3);
+
+    // Natural pond basin depression around (46, 36)
+    float distPond = std::sqrt((x - 46.0f) * (x - 46.0f) + (z - 36.0f) * (z - 36.0f));
+    if (distPond < 20.0f) {
+        float pondFactor = std::clamp(distPond / 20.0f, 0.0f, 1.0f);
+        baseH = baseH * pondFactor - (1.0f - pondFactor) * 0.20f;
     }
 
-    // Majestic distant rolling hill ridges along the outer perimeter (dist > 180m to 600m)
-    // Seamless C2 quintic smootherstep transition (zero 1st and 2nd derivatives at 180m)
-    float t = std::clamp((dist - 180.0f) / 160.0f, 0.0f, 1.0f);
-    float hillWeight = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+    // Majestic distant rolling hill ridges along the outer perimeter (dist > 160m to 600m)
+    if (dist > 160.0f) {
+        float hillWeight = std::clamp((dist - 160.0f) / 180.0f, 0.0f, 1.0f);
+        hillWeight = hillWeight * hillWeight * (3.0f - 2.0f * hillWeight);
+        float ridge1 = 26.0f * std::pow(std::max(0.0f, std::sin(x * 0.007f + 1.2f) * std::cos(z * 0.006f - 0.9f)), 1.7f);
+        float ridge2 = 16.0f * std::sin(dist * 0.009f + 1.5f) * std::cos(x * 0.004f);
+        baseH += hillWeight * (ridge1 + ridge2);
+    }
 
-    float ridge1 = 28.0f * std::pow(std::max(0.0f, std::sin(x * 0.007f + 1.2f) * std::cos(z * 0.006f - 0.9f)), 1.7f);
-    float ridge2 = 18.0f * std::sin(dist * 0.009f + 1.5f) * std::cos(x * 0.004f);
-    return hillWeight * (ridge1 + ridge2);
+    return baseH;
 }
 
 Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivisions) {
@@ -294,8 +307,8 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
             float posX = -halfW + x * stepX;
             float posY = getTerrainHeight(posX, posZ);
 
-            // Initialize vertex; normal will be set mathematically smooth below
-            vertices.push_back({{posX, posY, posZ}, glm::vec3(0.0f, 1.0f, 0.0f), uniformMeadowColor, {posX * 0.05f, posZ * 0.05f}});
+            // Initialize vertex; normal will be accumulated smoothly from adjacent triangle faces
+            vertices.push_back({{posX, posY, posZ}, glm::vec3(0.0f, 0.0f, 0.0f), uniformMeadowColor, {posX * 0.05f, posZ * 0.05f}});
         }
     }
 
@@ -317,27 +330,28 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
         }
     }
 
-    // Compute mathematical analytical normals using symmetric central differences:
-    // For the level village plain (dist <= 180m), the normal is strictly (0, 1, 0).
-    // For distant hills, central differences produce continuous C1 normals with ZERO triangulation bias or diagonal seams!
-    const float eps = 1.0f;
-    for (int z = 0; z <= subdivisions; ++z) {
-        for (int x = 0; x <= subdivisions; ++x) {
-            int idx = z * stride + x;
-            float px = vertices[idx].position.x;
-            float pz = vertices[idx].position.z;
-            float dist = std::sqrt(px * px + pz * pz);
+    // Compute mathematically smooth, area-weighted vertex normals from triangle faces
+    // (Completely eliminates ALL triangle creases and diagonal polygon seams!)
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        unsigned int i0 = indices[i];
+        unsigned int i1 = indices[i + 1];
+        unsigned int i2 = indices[i + 2];
 
-            if (dist <= 180.0f) {
-                vertices[idx].normal = glm::vec3(0.0f, 1.0f, 0.0f);
-            } else {
-                float hL = getTerrainHeight(px - eps, pz);
-                float hR = getTerrainHeight(px + eps, pz);
-                float hD = getTerrainHeight(px, pz - eps);
-                float hU = getTerrainHeight(px, pz + eps);
-                glm::vec3 norm((hL - hR) / (2.0f * eps), 1.0f, (hD - hU) / (2.0f * eps));
-                vertices[idx].normal = glm::normalize(norm);
-            }
+        glm::vec3 p0 = vertices[i0].position;
+        glm::vec3 p1 = vertices[i1].position;
+        glm::vec3 p2 = vertices[i2].position;
+
+        glm::vec3 faceNorm = glm::cross(p1 - p0, p2 - p0);
+        vertices[i0].normal += faceNorm;
+        vertices[i1].normal += faceNorm;
+        vertices[i2].normal += faceNorm;
+    }
+
+    for (auto& v : vertices) {
+        if (glm::length(v.normal) > 0.0001f) {
+            v.normal = glm::normalize(v.normal);
+        } else {
+            v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
         }
     }
 
@@ -504,33 +518,40 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    const int numSteps = 260;
-    const float roadWidth = 3.8f;
-    const int numCross = 9;
+    const int numSteps = 340;
+    const float roadWidth = 5.2f;
+    const int numCross = 11;
 
-    // Catmull-Rom control points guiding the village road from the launchpad exit gate
-    // smoothly through the countryside, winding between cottages, trees, pond and orchards
+    // Catmull-Rom control points guiding the scenic countryside road:
+    // Starting in the foreground left (strikingly visible from Camera 1 Overview),
+    // curving past the launch platform, connecting to the entrance gate,
+    // and meandering through the lush village, past cottages, ponds, and distant hills.
     struct SplinePoint {
         float x;
         float z;
     };
 
     const std::vector<SplinePoint> controlPoints = {
-        {  0.0f,   7.8f},  // Platform exit gate (z=7.8)
-        {  1.5f,  13.0f},  // Leading away from launchpad
-        {  4.5f,  20.0f},
-        {  9.2f,  27.5f},
-        { 15.0f,  33.5f},  // Weaves between Cottage 1 (21, 31) and Banyan 1 (13.8, 32.5)
-        { 20.8f,  41.0f},
-        { 25.5f,  49.5f},  // Sweeps past the village pond bank (46, 36)
-        { 29.8f,  59.0f},
-        { 33.2f,  69.5f},  // Reaches near Homestead 2 (38, 68) & Haystacks
-        { 31.5f,  82.0f},
-        { 24.5f,  95.0f},  // Passes Homestead 4 (16, 96)
-        { 16.0f, 110.0f},
-        {  8.0f, 128.0f},  // North grove trail
-        { -2.0f, 150.0f},
-        {-10.0f, 175.0f}   // Disappears into gentle horizon ridges
+        {-32.0f, -28.0f}, // Foreground left entrance (prominently visible in Camera 1 Overview!)
+        {-26.0f, -19.0f},
+        {-20.0f, -10.0f}, // Sweeps smoothly past western perimeter of the launch pad
+        {-15.0f,  -1.5f},
+        {-10.5f,   5.2f}, // Curves around launch platform corner
+        { -5.5f,   8.2f},
+        {  0.0f,   8.6f}, // Directly at the launch platform entrance gate!
+        {  5.0f,  14.5f}, // Weaves into the village meadow
+        {  9.8f,  22.5f},
+        { 15.5f,  31.5f}, // Weaves between Cottage 1 (21, 31) and Banyan 1 (13.8, 32.5)
+        { 21.2f,  41.0f},
+        { 26.5f,  50.5f}, // Sweeps past the village pond bank (46, 36)
+        { 30.5f,  61.0f},
+        { 33.2f,  71.5f}, // Reaches near Homestead 2 (38, 68) & Haystacks
+        { 30.0f,  84.5f},
+        { 22.5f,  99.0f}, // Passes Homestead 4 (16, 96)
+        { 13.0f, 116.0f},
+        {  3.0f, 138.0f}, // North grove trail
+        { -6.0f, 162.0f},
+        {-15.0f, 188.0f}  // Disappears gracefully into the distant hills
     };
 
     auto evaluateSpline = [&](float globalT, glm::vec2& outPos, glm::vec2& outTan) {
@@ -563,28 +584,30 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
         }
     };
 
-    // 9 cross-sectional lateral fraction coordinates from -1.0 to +1.0
+    // 11 cross-sectional lateral fraction coordinates from -1.0 to +1.0
     const float crossFractions[numCross] = {
-        -1.00f, -0.75f, -0.50f, -0.25f, 0.00f, 0.25f, 0.50f, 0.75f, 1.00f
+        -1.00f, -0.84f, -0.68f, -0.48f, -0.24f, 0.00f, 0.24f, 0.48f, 0.68f, 0.84f, 1.00f
     };
 
-    // Height offsets relative to ground terrain (depressed ruts, raised center & edges)
+    // Height offsets relative to ground terrain (raised dressed stone curbs, crowned cobblestone center)
     const float heightDeltas[numCross] = {
-        0.006f, // -1.00: Left outer grass verge (flush with ground)
-        0.016f, // -0.75: Left earth shoulder
-        0.008f, // -0.50: Left cart rut (depressed track)
-        0.022f, // -0.25: Left inner ridge slope
-        0.030f, //  0.00: Center ridge (raised beaten earth)
-        0.022f, // +0.25: Right inner ridge slope
-        0.008f, // +0.50: Right cart rut (depressed track)
-        0.016f, // +0.75: Right earth shoulder
-        0.006f  // +1.00: Right outer grass verge (flush with ground)
+        0.008f, // -1.00: Left outer grass verge transition
+        0.038f, // -0.84: Left stone curb outer edge
+        0.042f, // -0.68: Left stone curb inner edge
+        0.032f, // -0.48: Left paved road lane
+        0.037f, // -0.24: Crowned paver slope
+        0.042f, //  0.00: Center crowned ridge
+        0.037f, // +0.24: Crowned paver slope
+        0.032f, // +0.48: Right paved road lane
+        0.042f, // +0.68: Right stone curb inner edge
+        0.038f, // +0.84: Right stone curb outer edge
+        0.008f  // +1.00: Right outer grass verge transition
     };
 
     // Vertex colors for smooth baseline shading:
     glm::vec3 colVergeGrass(0.20f, 0.52f, 0.18f);
-    glm::vec3 colEarthenCenter(0.52f, 0.44f, 0.33f);
-    glm::vec3 colCompactedRut(0.38f, 0.31f, 0.22f);
+    glm::vec3 colStonePaver(0.64f, 0.54f, 0.42f);
+    glm::vec3 colStoneCurb(0.55f, 0.52f, 0.48f);
 
     float accumDist = 0.0f;
     glm::vec2 prevCenter(controlPoints[0].x, controlPoints[0].z);
@@ -619,16 +642,16 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
             // Color blending across cross-section
             glm::vec3 vColor;
             float absLat = std::abs(latFrac);
-            if (absLat > 0.70f) {
-                float blend = (absLat - 0.70f) / 0.30f;
-                vColor = glm::mix(colEarthenCenter, colVergeGrass, blend);
-            } else if (absLat > 0.35f && absLat < 0.65f) {
-                vColor = colCompactedRut;
+            if (absLat > 0.84f) {
+                float blend = (absLat - 0.84f) / 0.16f;
+                vColor = glm::mix(colStoneCurb, colVergeGrass, blend);
+            } else if (absLat >= 0.68f) {
+                vColor = colStoneCurb;
             } else {
-                vColor = colEarthenCenter;
+                vColor = colStonePaver;
             }
 
-            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.35f}});
+            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.38f}});
         }
     }
 
@@ -646,6 +669,207 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
             indices.push_back(row2 + c + 1);
         }
     }
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createRusticLanternPost() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    auto addBox = [&](glm::vec3 pMin, glm::vec3 pMax, glm::vec3 col) {
+        unsigned int b = (unsigned int)vertices.size();
+        glm::vec3 n;
+        // Top (+Y)
+        n = glm::vec3(0, 1, 0);
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col, {0, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Bottom (-Y)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, -1, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.7f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.7f, {1, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.7f, {1, 1}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.7f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Front (+Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, 1);
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.95f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.95f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.95f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.95f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Back (-Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, -1);
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.85f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.85f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.85f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.85f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Right (+X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(1, 0, 0);
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.90f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.90f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.90f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.90f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Left (-X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(-1, 0, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.80f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.80f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.80f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.80f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+    };
+
+    glm::vec3 colStoneBase(0.48f, 0.46f, 0.44f);
+    glm::vec3 colDarkWood(0.35f, 0.23f, 0.15f);
+    glm::vec3 colIron(0.20f, 0.20f, 0.22f);
+    glm::vec3 colWarmGlass(0.98f, 0.86f, 0.52f);
+
+    // 1. Chiseled Stone Base Plinth
+    addBox(glm::vec3(-0.22f, 0.0f, -0.22f), glm::vec3(0.22f, 0.35f, 0.22f), colStoneBase);
+    addBox(glm::vec3(-0.18f, 0.35f, -0.18f), glm::vec3(0.18f, 0.45f, 0.18f), colStoneBase * 1.05f);
+
+    // 2. Heavy Timber Upright Post (2.75m height)
+    addBox(glm::vec3(-0.10f, 0.45f, -0.10f), glm::vec3(0.10f, 2.75f, 0.10f), colDarkWood);
+
+    // 3. Post Timber Cap & Finial
+    addBox(glm::vec3(-0.13f, 2.75f, -0.13f), glm::vec3(0.13f, 2.88f, 0.13f), colDarkWood * 1.1f);
+    addBox(glm::vec3(-0.06f, 2.88f, -0.06f), glm::vec3(0.06f, 2.98f, 0.06f), colIron);
+
+    // 4. Wrought Iron Extended Cantilever Arm (extends 0.65m outward)
+    addBox(glm::vec3(-0.035f, 2.65f, -0.035f), glm::vec3(0.65f, 2.73f, 0.035f), colIron);
+    // Diagonal decorative iron strut brace
+    addBox(glm::vec3(0.08f, 2.25f, -0.025f), glm::vec3(0.45f, 2.65f, 0.025f), colIron);
+
+    // 5. Hanging Lantern Housing at arm end (x = 0.55m)
+    float lx = 0.55f;
+    addBox(glm::vec3(lx - 0.02f, 2.55f, -0.02f), glm::vec3(lx + 0.02f, 2.65f, 0.02f), colIron);
+    addBox(glm::vec3(lx - 0.16f, 2.45f, -0.16f), glm::vec3(lx + 0.16f, 2.55f, 0.16f), colIron);
+    addBox(glm::vec3(lx - 0.12f, 2.10f, -0.12f), glm::vec3(lx + 0.12f, 2.15f, 0.12f), colIron);
+
+    // 4 Corner Iron Struts
+    addBox(glm::vec3(lx - 0.14f, 2.15f, -0.14f), glm::vec3(lx - 0.11f, 2.45f, -0.11f), colIron);
+    addBox(glm::vec3(lx + 0.11f, 2.15f, -0.14f), glm::vec3(lx + 0.14f, 2.45f, -0.11f), colIron);
+    addBox(glm::vec3(lx - 0.14f, 2.15f,  0.11f), glm::vec3(lx - 0.11f, 2.45f,  0.14f), colIron);
+    addBox(glm::vec3(lx + 0.11f, 2.15f,  0.11f), glm::vec3(lx + 0.14f, 2.45f,  0.14f), colIron);
+
+    // Warm Amber Glass Core
+    addBox(glm::vec3(lx - 0.10f, 2.15f, -0.10f), glm::vec3(lx + 0.10f, 2.45f, 0.10f), colWarmGlass);
+
+    return Mesh(vertices, indices);
+}
+
+Mesh ModelGenerator::createWaypointSignpost() {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    auto addBox = [&](glm::vec3 pMin, glm::vec3 pMax, glm::vec3 col) {
+        unsigned int b = (unsigned int)vertices.size();
+        glm::vec3 n;
+        // Top (+Y)
+        n = glm::vec3(0, 1, 0);
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col, {0, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Bottom (-Y)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, -1, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.7f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.7f, {1, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.7f, {1, 1}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.7f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Front (+Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, 1);
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.95f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.95f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.95f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.95f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Back (-Z)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(0, 0, -1);
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.85f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.85f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.85f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.85f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Right (+X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(1, 0, 0);
+        vertices.push_back({{pMax.x, pMin.y, pMax.z}, n, col * 0.90f, {0, 0}});
+        vertices.push_back({{pMax.x, pMin.y, pMin.z}, n, col * 0.90f, {1, 0}});
+        vertices.push_back({{pMax.x, pMax.y, pMin.z}, n, col * 0.90f, {1, 1}});
+        vertices.push_back({{pMax.x, pMax.y, pMax.z}, n, col * 0.90f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+
+        // Left (-X)
+        b = (unsigned int)vertices.size();
+        n = glm::vec3(-1, 0, 0);
+        vertices.push_back({{pMin.x, pMin.y, pMin.z}, n, col * 0.80f, {0, 0}});
+        vertices.push_back({{pMin.x, pMin.y, pMax.z}, n, col * 0.80f, {1, 0}});
+        vertices.push_back({{pMin.x, pMax.y, pMax.z}, n, col * 0.80f, {1, 1}});
+        vertices.push_back({{pMin.x, pMax.y, pMin.z}, n, col * 0.80f, {0, 1}});
+        indices.push_back(b); indices.push_back(b+1); indices.push_back(b+2);
+        indices.push_back(b); indices.push_back(b+2); indices.push_back(b+3);
+    };
+
+    glm::vec3 colPostWood(0.40f, 0.28f, 0.18f);
+    glm::vec3 colBoard1(0.76f, 0.62f, 0.44f);
+    glm::vec3 colBoard2(0.68f, 0.54f, 0.38f);
+    glm::vec3 colIron(0.20f, 0.20f, 0.22f);
+
+    // 1. Base mound stones
+    addBox(glm::vec3(-0.25f, 0.0f, -0.25f), glm::vec3(0.25f, 0.20f, 0.25f), glm::vec3(0.50f, 0.48f, 0.45f));
+
+    // 2. Main timber post (2.3m height)
+    addBox(glm::vec3(-0.09f, 0.20f, -0.09f), glm::vec3(0.09f, 2.30f, 0.09f), colPostWood);
+    // Pyramid tip cap
+    addBox(glm::vec3(-0.11f, 2.30f, -0.11f), glm::vec3(0.11f, 2.42f, 0.11f), colPostWood * 0.9f);
+
+    // 3. Top Signboard pointing +X (Meadow Path & Village Pond)
+    addBox(glm::vec3(-0.05f, 2.02f, -0.04f), glm::vec3(0.85f, 2.22f, 0.04f), colBoard1);
+    addBox(glm::vec3(0.85f, 2.06f, -0.035f), glm::vec3(0.96f, 2.18f, 0.035f), colBoard1 * 0.95f);
+
+    // 4. Lower Signboard pointing -Z (Airfield / Launch Base)
+    addBox(glm::vec3(-0.04f, 1.76f, -0.80f), glm::vec3(0.04f, 1.96f, 0.05f), colBoard2);
+    addBox(glm::vec3(-0.035f, 1.80f, -0.92f), glm::vec3(0.035f, 1.92f, -0.80f), colBoard2 * 0.95f);
+
+    // 5. Iron mounting bands & bolts
+    addBox(glm::vec3(-0.10f, 2.04f, -0.10f), glm::vec3(0.10f, 2.08f, 0.10f), colIron);
+    addBox(glm::vec3(-0.10f, 1.78f, -0.10f), glm::vec3(0.10f, 1.82f, 0.10f), colIron);
 
     return Mesh(vertices, indices);
 }
@@ -1721,8 +1945,8 @@ Mesh ModelGenerator::createWetlandWater(float width, float depth) {
             float fx = (float)x / (float)subsX;
             float px = -halfW + fx * width;
 
-            // Subtle rippling surface placed cleanly on meadow plain
-            float py = 0.018f + 0.008f * std::sin(px * 0.8f + pz * 0.6f);
+            // Subtle rippling surface
+            float py = -0.06f + 0.015f * std::sin(px * 0.8f + pz * 0.6f);
             vertices.push_back({{px, py, pz}, norm, waterDeep, {fx, fz}});
         }
     }

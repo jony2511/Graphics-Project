@@ -242,16 +242,10 @@ void main() {
         // Pure procedural albedo computed per-pixel (eliminates all vertex interpolation creases!)
         baseAlbedo = grassCol;
 
-        // Level village meadow plain base normal is strictly vertical (0, 1, 0)
-        float groundDist = length(FragPos.xz);
-        if (groundDist <= 180.0) {
-            norm = vec3(0.0, 1.0, 0.0);
-        }
-
         // Subtle organic blade/turf normal perturbation (bump mapping)
         if (dist < 180.0) {
             float detailFade = clamp(1.0 - dist / 180.0, 0.0, 1.0);
-            float bumpFactor = detailFade * 0.10;
+            float bumpFactor = detailFade * 0.18;
             vec3 grassBump = vec3(
                 noise2D(pMicro + vec2(1.7, 0.3)) - 0.5,
                 0.0,
@@ -260,45 +254,105 @@ void main() {
             norm = normalize(norm + grassBump);
         }
     } else if (uMaterialType == 2) {
-        // Natural curved earthen village road with cart ruts, fine gravel, dust, and soft grassy verge
+        // High-Fidelity Rustic Countryside Paved Road
+        // Interlocking warm terracotta, golden sandstone & granite cobblestones,
+        // dressed stone curb edges, recessed mossy mortar joints, and wildflower meadow verges
         float u = clamp(TexCoords.x, 0.0, 1.0);
         float vCoord = TexCoords.y;
-
-        float gravelNoise = noise2D(FragPos.xz * 3.5) * 0.65 + noise2D(FragPos.xz * 14.0) * 0.35;
-        float soilNoise   = fbm2D(FragPos.xz * 0.20);
-
-        vec3 colEarthenCenter = vec3(0.52, 0.44, 0.33); // Light beaten clay/earth
-        vec3 colCompactedRut  = vec3(0.38, 0.31, 0.22); // Darker compacted earth in ruts
-        vec3 colDustGravel    = vec3(0.58, 0.50, 0.38); // Sun-baked dust & fine sand
-        vec3 colWeedsCenter   = vec3(0.30, 0.46, 0.22); // Center ridge sparse grass
-        vec3 colBorderGrass   = vec3(0.18, 0.48, 0.16); // Lush verge grass
-
-        float rut1 = 1.0 - smoothstep(0.0, 0.15, abs(u - 0.26));
-        float rut2 = 1.0 - smoothstep(0.0, 0.15, abs(u - 0.74));
-        float rutAmount = max(rut1, rut2);
-
-        float centerRidge = 1.0 - smoothstep(0.0, 0.16, abs(u - 0.50));
-
-        vec3 roadCol = mix(colEarthenCenter, colDustGravel, soilNoise * 0.6);
-        roadCol = mix(roadCol, colCompactedRut, rutAmount * 0.75);
-        roadCol = mix(roadCol, colWeedsCenter, centerRidge * smoothstep(0.40, 0.80, soilNoise) * 0.55);
-        roadCol += (gravelNoise - 0.5) * 0.14 * (1.0 - rutAmount * 0.35);
-
-        // Soft feathered edge blending into meadow grass (zero harsh boundary lines!)
         float edgeDist = min(u, 1.0 - u);
-        float edgeFactor = clamp(edgeDist / 0.18, 0.0, 1.0);
-        edgeFactor = edgeFactor * edgeFactor * (3.0 - 2.0 * edgeFactor);
 
-        vec3 vergeGrass = mix(colBorderGrass, vec3(0.13, 0.38, 0.14), soilNoise);
-        baseAlbedo = mix(vergeGrass, roadCol, edgeFactor);
+        // 1. Central Cobblestone Roadway (u in [0.16, 0.84])
+        float uLane = clamp((u - 0.16) / 0.68, 0.0, 1.0);
+        vec2 stoneCoord = vec2(uLane * 6.5, vCoord * 1.55);
 
+        // Stagger alternating rows for running bond pattern
+        float rowId = floor(stoneCoord.y);
+        if (mod(rowId, 2.0) > 0.5) {
+            stoneCoord.x += 0.5;
+        }
+
+        vec2 stoneCell = fract(stoneCoord) - 0.5;
+        vec2 stoneId = floor(stoneCoord);
+
+        float rand1 = hash21(stoneId);
+        float rand2 = hash21(stoneId + vec2(17.3, 31.9));
+
+        // Rounded chamfered paver distance metric
+        vec2 dBox = max(abs(stoneCell) - vec2(0.38, 0.36), 0.0);
+        float dJoint = length(dBox);
+        float mortarJoint = smoothstep(0.04, 0.12, dJoint);
+
+        // Harmonious, warm European/countryside stone palette
+        vec3 colTerra   = vec3(0.68, 0.45, 0.33); // Warm Tuscan terracotta paver
+        vec3 colSand    = vec3(0.72, 0.63, 0.49); // Golden sunlit sandstone
+        vec3 colGranite = vec3(0.58, 0.55, 0.50); // Buff gray granite block
+        vec3 colRiver   = vec3(0.64, 0.53, 0.42); // Warm river stone
+        vec3 stoneCol;
+        if (rand1 < 0.28) {
+            stoneCol = mix(colTerra, colSand, rand2 * 0.65);
+        } else if (rand1 < 0.60) {
+            stoneCol = mix(colSand, colRiver, rand2 * 0.70);
+        } else if (rand1 < 0.82) {
+            stoneCol = mix(colRiver, colGranite, rand2 * 0.60);
+        } else {
+            stoneCol = mix(colGranite, colTerra, rand2 * 0.45);
+        }
+
+        // Mineral grain and micro-texture on stone surface
+        float mineralNoise = noise2D(FragPos.xz * 12.0) * 0.6 + noise2D(FragPos.xz * 28.0) * 0.4;
+        stoneCol *= (0.88 + 0.24 * mineralNoise);
+
+        // Recessed dark earthy mortar joint with velvety green moss
+        vec3 colMortar = vec3(0.24, 0.22, 0.19);
+        vec3 colMoss   = vec3(0.18, 0.38, 0.14);
+        float mossNoise = smoothstep(0.35, 0.75, noise2D(FragPos.xz * 1.8 + vec2(4.2, 1.7)));
+        vec3 mortarCol = mix(colMortar, colMoss, mossNoise * 0.65);
+        vec3 paverRoad = mix(stoneCol, mortarCol, mortarJoint);
+
+        // 2. Dressed Granite Curb Borders (edgeDist in [0.08, 0.16])
+        float curbV = vCoord * 0.75;
+        float curbJoint = smoothstep(0.42, 0.48, abs(fract(curbV) - 0.5));
+        vec3 curbCol = mix(vec3(0.62, 0.58, 0.52), vec3(0.26, 0.24, 0.21), curbJoint);
+        curbCol *= (0.90 + 0.20 * noise2D(FragPos.xz * 10.0));
+
+        // 3. Grassy Meadow Roadside Verge with Wildflowers (edgeDist < 0.08)
+        float vergeNoise = noise2D(FragPos.xz * 2.2);
+        vec3 vergeGrass = mix(vec3(0.20, 0.52, 0.18), vec3(0.14, 0.38, 0.14), vergeNoise);
+
+        // Wildflower blooms along road edge (buttercup yellow & daisy white)
+        float flowerHash = hash21(floor(FragPos.xz * 4.5));
+        if (flowerHash > 0.82 && edgeDist < 0.075) {
+            vec3 flowerCol = (flowerHash > 0.92) ? vec3(0.98, 0.88, 0.30) : vec3(0.96, 0.96, 0.98);
+            vergeGrass = flowerCol;
+        }
+
+        // Composite the three cross-section zones
+        vec3 roadSurface;
+        if (edgeDist < 0.08) {
+            float tVerge = smoothstep(0.01, 0.075, edgeDist);
+            roadSurface = mix(vergeGrass, curbCol, tVerge);
+        } else if (edgeDist < 0.16) {
+            float tCurb = smoothstep(0.08, 0.155, edgeDist);
+            roadSurface = mix(curbCol, paverRoad, tCurb);
+        } else {
+            roadSurface = paverRoad;
+        }
+
+        baseAlbedo = roadSurface;
+
+        // 3D Physical Bump Normal Mapping for individual rounded cobblestones & curbs
         if (dist < 140.0) {
-            float bumpFactor = clamp(1.0 - dist / 140.0, 0.0, 1.0) * 0.22 * edgeFactor;
-            vec3 roadBump = vec3(
-                noise2D(FragPos.xz * 4.5 + vec2(0.5, 1.2)) - 0.5,
-                0.0,
-                noise2D(FragPos.xz * 4.5 + vec2(2.1, 0.8)) - 0.5
-            ) * bumpFactor;
+            float detailFade = clamp(1.0 - dist / 140.0, 0.0, 1.0);
+            vec3 roadBump = vec3(0.0);
+            if (edgeDist >= 0.16) {
+                // Cobblestone 3D convex rounded top
+                vec2 stoneBevel = -clamp(stoneCell / 0.38, -1.0, 1.0) * (1.0 - mortarJoint) * 0.45;
+                roadBump = vec3(stoneBevel.x, 0.0, stoneBevel.y) * detailFade;
+            } else if (edgeDist >= 0.08) {
+                // Curb bevel towards road
+                float curbBevel = (u < 0.5 ? -1.0 : 1.0) * 0.35;
+                roadBump = vec3(curbBevel, 0.0, 0.0) * detailFade;
+            }
             norm = normalize(norm + roadBump);
         }
     }
