@@ -75,8 +75,8 @@ void Camera::update(float deltaTime, const glm::vec3& balloonPos, float swayRoll
 
             // Default gaze: looks smoothly over the front rim towards the village
             if (!hasUserRotatedBasketView) {
-                float altRatio = glm::clamp((balloonPos.y - 4.2f) / 34.0f, 0.0f, 1.0f);
-                pitch = glm::mix(-10.0f, -22.0f, altRatio);
+                float altRatio = glm::clamp((balloonPos.y - 4.2f) / 120.0f, 0.0f, 1.0f);
+                pitch = glm::mix(-10.0f, -25.0f, altRatio);
                 yaw = 68.0f;
             }
             updateCameraVectors();

@@ -698,6 +698,19 @@ int main() {
     int frameCount = 0;
     float currentFps = 60.0f;
 
+    // Decoupled Background Balloons State
+    glm::vec3 bg1Pos(88.0f, 56.0f, 58.0f);
+    float bg1Scale = 0.68f;
+    float bg1Roll = 0.0f, bg1Pitch = 0.0f;
+
+    glm::vec3 bg2Pos(-78.0f, 74.0f, 72.0f);
+    float bg2Scale = 0.56f;
+    float bg2Roll = 0.0f, bg2Pitch = 0.0f;
+
+    glm::vec3 bg3Pos(28.0f, 98.0f, 165.0f);
+    float bg3Scale = 0.46f;
+    float bg3Roll = 0.0f, bg3Pitch = 0.0f;
+
     // 6. Main Render Loop
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -716,21 +729,48 @@ int main() {
             windVector = glm::vec3(std::cos(windHeadingRad), 0.0f, std::sin(windHeadingRad)) * (windSpeed * 0.28f);
 
             // ==========================================
-            // 2. Aerodynamic Balloon Ascent & Drift Physics
+            // 2. Compute Decoupled Background Balloon Trajectories
+            // ==========================================
+            // Relocated to East, West, and North skies to avoid conflict corridor with hero balloon
+            float bg1Alt = 56.0f + 3.2f * std::sin(simulationTime * 0.32f + 1.2f);
+            float bg1X   = 88.0f + 6.0f * std::sin(simulationTime * 0.12f);
+            float bg1Z   = 58.0f + 4.5f * std::cos(simulationTime * 0.10f);
+            bg1Pos       = glm::vec3(bg1X, bg1Alt, bg1Z);
+            bg1Roll      = 2.2f * std::sin(simulationTime * 1.6f);
+            bg1Pitch     = 1.6f * std::cos(simulationTime * 1.3f);
+
+            float bg2Alt = 74.0f + 3.8f * std::cos(simulationTime * 0.26f + 0.8f);
+            float bg2X   = -78.0f + 5.5f * std::cos(simulationTime * 0.13f + 1.0f);
+            float bg2Z   = 72.0f + 4.0f * std::sin(simulationTime * 0.11f + 0.5f);
+            bg2Pos       = glm::vec3(bg2X, bg2Alt, bg2Z);
+            bg2Roll      = -2.0f * std::cos(simulationTime * 1.5f);
+            bg2Pitch     = 1.5f * std::sin(simulationTime * 1.2f);
+
+            float bg3Alt = 98.0f + 4.2f * std::sin(simulationTime * 0.20f + 2.4f);
+            float bg3X   = 28.0f + 7.0f * std::sin(simulationTime * 0.08f + 2.0f);
+            float bg3Z   = 165.0f + 6.0f * std::cos(simulationTime * 0.07f + 1.2f);
+            bg3Pos       = glm::vec3(bg3X, bg3Alt, bg3Z);
+            bg3Roll      = 1.5f * std::sin(simulationTime * 1.2f);
+            bg3Pitch     = 1.1f * std::cos(simulationTime * 1.0f);
+
+            // ==========================================
+            // 3. Aerodynamic Balloon Ascent & Drift Physics (Hero Balloon)
             // ==========================================
             if (burnerActive) {
-                // Buoyancy lift force minus drag
-                float targetAscentRate = 2.2f;
-                balloonVelocity.y += (targetAscentRate - balloonVelocity.y) * 0.8f * deltaTime;
+                // High-performance hot air buoyancy lift with atmospheric ceiling cushioning
+                float targetAscentRate = 2.8f;
+                float altLimit = 150.0f; // Expanded ceiling allowing high-altitude panoramic exploration
+                float buoyancyFactor = glm::clamp(1.0f - (balloonAltitude - 115.0f) / 40.0f, 0.20f, 1.0f);
+                balloonVelocity.y += (targetAscentRate * buoyancyFactor - balloonVelocity.y) * 0.85f * deltaTime;
                 balloonAltitude += balloonVelocity.y * deltaTime;
-                if (balloonAltitude > 38.0f) {
-                    balloonAltitude = 38.0f;
+                if (balloonAltitude > altLimit) {
+                    balloonAltitude = altLimit;
                     balloonVelocity.y = 0.0f;
                 }
             } else {
-                // Cooling descent with terminal velocity
-                float targetDescentRate = -1.8f;
-                balloonVelocity.y += (targetDescentRate - balloonVelocity.y) * 0.65f * deltaTime;
+                // Cooling descent with steady terminal velocity
+                float targetDescentRate = -2.0f;
+                balloonVelocity.y += (targetDescentRate - balloonVelocity.y) * 0.70f * deltaTime;
                 balloonAltitude += balloonVelocity.y * deltaTime;
                 if (balloonAltitude < 4.2f) {
                     balloonAltitude = 4.2f;
@@ -738,14 +778,15 @@ int main() {
                 }
             }
 
-            // Horizontal wind drag and interactive flight steering (Arrow Keys)
-            float maxSteerSpeed = 8.5f; // m/s (~30.6 km/h)
-            float driftTargetX = (windVector.x * (balloonAltitude / 14.0f)) + (userSteerX * maxSteerSpeed);
-            float driftTargetZ = (windVector.z * (balloonAltitude / 14.0f)) + (userSteerZ * maxSteerSpeed);
+            // Horizontal wind drag with gentle altitude wind shear and interactive flight steering (Arrow Keys)
+            float maxSteerSpeed = 9.0f; // m/s (~32.4 km/h)
+            float altWindShear = 1.0f + 0.75f * glm::clamp((balloonAltitude - 4.2f) / 140.0f, 0.0f, 1.0f);
+            float driftTargetX = (windVector.x * altWindShear) + (userSteerX * maxSteerSpeed);
+            float driftTargetZ = (windVector.z * altWindShear) + (userSteerZ * maxSteerSpeed);
 
             // Responsive steering acceleration when user is actively steering; smooth aerodynamic inertia when coasting
             bool isSteeringActive = (std::abs(userSteerX) > 0.01f || std::abs(userSteerZ) > 0.01f);
-            float steerResponse = isSteeringActive ? 2.4f : 0.65f;
+            float steerResponse = isSteeringActive ? 2.5f : 0.65f;
 
             balloonVelocity.x += (driftTargetX - balloonVelocity.x) * steerResponse * deltaTime;
             balloonVelocity.z += (driftTargetZ - balloonVelocity.z) * steerResponse * deltaTime;
@@ -754,9 +795,27 @@ int main() {
             balloonPosition.z += balloonVelocity.z * deltaTime;
             balloonPosition.y = balloonAltitude;
 
-            // Soft terrain boundaries (keeps balloon inside the scenic world)
-            balloonPosition.x = glm::clamp(balloonPosition.x, -85.0f, 85.0f);
-            balloonPosition.z = glm::clamp(balloonPosition.z, -85.0f, 85.0f);
+            // Expansive terrain flight boundaries (keeps balloon inside the 1200m scenic world)
+            balloonPosition.x = glm::clamp(balloonPosition.x, -380.0f, 380.0f);
+            balloonPosition.z = glm::clamp(balloonPosition.z, -380.0f, 380.0f);
+
+            // 3D Aerodynamic Collision Avoidance & Slipstream Repulsion
+            // Ensures hero balloon and background balloons never intersect, overlap, or clip
+            auto resolveBalloonConflict = [&](const glm::vec3& otherPos, float minSafeDist) {
+                glm::vec3 diff = balloonPosition - otherPos;
+                float dist = glm::length(diff);
+                if (dist < minSafeDist && dist > 0.0001f) {
+                    glm::vec3 repelDir = glm::normalize(diff);
+                    float overlap = minSafeDist - dist;
+                    balloonPosition += repelDir * (overlap * 3.5f * deltaTime);
+                    balloonVelocity += repelDir * (overlap * 4.0f * deltaTime);
+                    balloonAltitude = balloonPosition.y;
+                }
+            };
+
+            resolveBalloonConflict(bg1Pos, 16.0f);
+            resolveBalloonConflict(bg2Pos, 14.0f);
+            resolveBalloonConflict(bg3Pos, 12.0f);
 
             // Multi-Axis Basket Pendulum Sway Physics (dynamically tilts with steering forces)
             float swayFreq = 2.3f;
@@ -766,7 +825,7 @@ int main() {
             basketSwayPitch = glm::clamp((2.6f * std::cos(simulationTime * (swayFreq * 0.88f)) + balloonVelocity.z * 2.2f) * windGustForce * naturalDamping, -18.0f, 18.0f);
 
             // ==========================================
-            // 3. Environmental Rotations & Drifts
+            // 4. Environmental Rotations & Drifts
             // ==========================================
             // Windmill rotation speed directly driven by wind speed
             windmillAngle += (windSpeed * 3.4f) * deltaTime;
@@ -775,8 +834,8 @@ int main() {
             // Clouds drift with wind vector
             for (auto& c : clouds) {
                 c.position += windVector * (c.speedMultiplier * 0.4f) * deltaTime;
-                if (c.position.x > 120.0f) c.position.x = -120.0f;
-                if (c.position.z > 120.0f) c.position.z = -120.0f;
+                if (c.position.x > 320.0f) c.position.x = -320.0f;
+                if (c.position.z > 320.0f) c.position.z = -320.0f;
             }
         }
 
@@ -884,45 +943,21 @@ int main() {
         rollingTerrain.draw();
         dirtRoad.draw();
 
-        // Compute Decoupled Background Balloon Trajectories
-        float bg1Alt = 28.0f + 2.2f * std::sin(simulationTime * 0.40f + 1.2f);
-        float bg1X   = 34.0f + 3.2f * std::sin(simulationTime * 0.16f);
-        float bg1Z   = 24.0f + 2.0f * std::cos(simulationTime * 0.14f);
-        glm::vec3 bg1Pos(bg1X, bg1Alt, bg1Z);
-        float bg1Scale = 0.65f;
-        float bg1Roll  = 2.5f * std::sin(simulationTime * 1.8f);
-        float bg1Pitch = 1.8f * std::cos(simulationTime * 1.5f);
-
-        float bg2Alt = 36.0f + 2.8f * std::cos(simulationTime * 0.35f + 0.8f);
-        float bg2X   = -30.0f + 3.8f * std::cos(simulationTime * 0.14f + 1.2f);
-        float bg2Z   = 36.0f + 2.8f * std::sin(simulationTime * 0.12f + 0.4f);
-        glm::vec3 bg2Pos(bg2X, bg2Alt, bg2Z);
-        float bg2Scale = 0.52f;
-        float bg2Roll  = -2.2f * std::cos(simulationTime * 1.6f);
-        float bg2Pitch = 1.6f * std::sin(simulationTime * 1.4f);
-
-        float bg3Alt = 48.0f + 2.2f * std::sin(simulationTime * 0.28f + 2.4f);
-        float bg3X   = 12.0f + 4.2f * std::sin(simulationTime * 0.11f + 1.8f);
-        float bg3Z   = 68.0f + 3.0f * std::cos(simulationTime * 0.10f + 1.0f);
-        glm::vec3 bg3Pos(bg3X, bg3Alt, bg3Z);
-        float bg3Scale = 0.40f;
-        float bg3Roll  = 1.6f * std::sin(simulationTime * 1.4f);
-        float bg3Pitch = 1.2f * std::cos(simulationTime * 1.2f);
-
         // ==========================================
         // 3. Draw Dynamic Ground Shadows (All Balloons)
         // ==========================================
         auto drawBalloonShadow = [&](const glm::vec3& bPos, float bScale) {
-            if (curSunDir.y < -0.1f) {
+            if (curSunDir.y < -0.1f && bPos.y < 80.0f) {
                 float tShadow = -(bPos.y - 0.06f) / curSunDir.y;
                 float shadowX = bPos.x + tShadow * curSunDir.x;
                 float shadowZ = bPos.z + tShadow * curSunDir.z;
 
-                float shadowScale = bScale / (1.0f + 0.032f * bPos.y);
-                float shadowAlpha = glm::clamp((0.55f - 0.012f * bPos.y) * bScale, 0.06f, 0.45f);
+                float altFactor = 1.0f - (bPos.y / 80.0f);
+                float shadowScale = bScale * (1.0f + 0.015f * bPos.y);
+                float shadowAlpha = glm::clamp(0.42f * altFactor * bScale, 0.0f, 0.45f);
 
                 if (currentLightMode == LIGHT_NIGHT) {
-                    shadowAlpha *= 0.45f;
+                    shadowAlpha *= 0.40f;
                 }
 
                 glm::mat4 sModel = glm::translate(glm::mat4(1.0f), glm::vec3(shadowX, 0.06f, shadowZ));
