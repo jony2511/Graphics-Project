@@ -1173,24 +1173,32 @@ int main() {
             envMesh.draw();
 
             // B. Throat Skirt Collar
-            glm::mat4 skirtModel = glm::translate(bRoot, glm::vec3(0.0f, 1.9f, 0.0f));
+            glm::mat4 skirtModel = glm::translate(bRoot, glm::vec3(0.0f, 2.2f, 0.0f));
             sceneShader.setMat4("uModel", skirtModel);
             whiteSkirt.draw();
 
             // C. Burner Ring
-            glm::mat4 burnerModel = glm::translate(bRoot, glm::vec3(0.0f, 1.25f, 0.0f));
+            glm::mat4 burnerModel = glm::translate(bRoot, glm::vec3(0.0f, 1.80f, 0.0f));
             sceneShader.setMat4("uModel", burnerModel);
             burnerRing.draw();
 
             // D. Burner Flame
             if (flameOn) {
-                float fScale = (0.95f + 0.35f * std::sin(simulationTime * 24.0f + pos.x)) * flameIntensity;
-                glm::mat4 fModel = glm::translate(bRoot, glm::vec3(0.0f, 1.4f, 0.0f));
-                fModel = glm::scale(fModel, glm::vec3(fScale, fScale * 1.35f, fScale));
-                sceneShader.setMat4("uModel", fModel);
-                sceneShader.setFloat("uEmissive", 1.0f);
-                burnerFlame.draw();
-                sceneShader.setFloat("uEmissive", 0.0f);
+                // If in Basket POV on hero balloon, only draw flame when looking up at the envelope
+                bool shouldDrawFlame = true;
+                if (camera.mode == CAMERA_BASKET_POV && &envMesh == &rainbowEnvelope && camera.pitch < 20.0f) {
+                    shouldDrawFlame = false;
+                }
+
+                if (shouldDrawFlame) {
+                    float fScale = (0.95f + 0.30f * std::sin(simulationTime * 24.0f + pos.x)) * flameIntensity;
+                    glm::mat4 fModel = glm::translate(bRoot, glm::vec3(0.0f, 2.50f, 0.0f));
+                    fModel = glm::scale(fModel, glm::vec3(fScale * 0.70f, fScale * 1.0f, fScale * 0.70f));
+                    sceneShader.setMat4("uModel", fModel);
+                    sceneShader.setFloat("uEmissive", 1.0f);
+                    burnerFlame.draw();
+                    sceneShader.setFloat("uEmissive", 0.0f);
+                }
             }
 
             // E. Swaying Woven Basket
@@ -1203,7 +1211,7 @@ int main() {
 
             // F. 8 Suspension Rigging Cables
             float sRadius = 1.22f;
-            float sY = 1.35f;
+            float sY = 1.80f;
             float bRimY = 0.30f;
             float bAnchors[8][2] = {
                 {-1.15f, -1.15f}, { 0.00f, -1.18f}, { 1.15f, -1.15f},

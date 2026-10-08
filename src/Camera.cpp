@@ -67,7 +67,7 @@ void Camera::update(float deltaTime, const glm::vec3& balloonPos, float swayRoll
         case CAMERA_BASKET_POV: {
             // Standing passenger inside the wicker basket:
             // Basket rim is at +0.30m. Eye level is at +0.55m (25cm ABOVE the rim), standing near the front rail (Z = +0.35m).
-            glm::vec3 localEye(0.0f, 0.55f, 0.35f);
+            glm::vec3 localEye(0.0f, 0.58f, 0.32f);
             glm::mat4 bTransform = glm::rotate(glm::mat4(1.0f), glm::radians(swayRoll), glm::vec3(0, 0, 1));
             bTransform = glm::rotate(bTransform, glm::radians(swayPitch), glm::vec3(1, 0, 0));
             glm::vec3 worldEyeOffset = glm::vec3(bTransform * glm::vec4(localEye, 1.0f));
