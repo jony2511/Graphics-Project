@@ -603,7 +603,7 @@ int main() {
     Mesh lushBush = ModelGenerator::createLushBush(1.5f);
     Mesh reedClusterDense = ModelGenerator::createReedCluster(18, 1.9f);
     Mesh reedClusterLight = ModelGenerator::createReedCluster(10, 1.4f);
-    Mesh wetlandWater = ModelGenerator::createWetlandWater(140.0f, 75.0f);
+    Mesh wetlandWater = ModelGenerator::createWetlandWater(46.0f, 38.0f);
     Mesh rusticBoulder = ModelGenerator::createSphere(1.1f, 10, 10, glm::vec3(0.38f, 0.36f, 0.32f));
 
     // D. Main Hot Air Balloon (Vibrant Rainbow Envelope + Basket)
@@ -655,7 +655,7 @@ int main() {
         float scale;
     };
     std::vector<VillageHutInstance> villageHuts = {
-        {{ 21.0f, 0.0f,  31.0f}, -28.0f, 1.00f},  // Homestead 1 (Main cottage near pond)
+        {{ 27.5f, 0.0f,  30.0f}, -25.0f, 1.00f},  // Homestead 1 (Shifted comfortably clear of road)
         {{ 38.0f, 0.0f,  68.0f},  18.0f, 1.05f},  // Homestead 2 (Farmhouse along northern road)
         {{-18.0f, 0.0f,  46.0f}, -55.0f, 0.95f},  // Homestead 3 (Cottage across the meadow trail)
         {{ 16.0f, 0.0f,  96.0f},  35.0f, 0.92f},  // Homestead 4 (North grove dwelling)
@@ -668,7 +668,7 @@ int main() {
         float scale;
     };
     std::vector<HaystackInstance> haystacks = {
-        {{ 27.5f, 0.0f,  34.0f}, 1.00f},
+        {{ 33.5f, 0.0f,  33.0f}, 1.00f},
         {{ 44.0f, 0.0f,  65.0f}, 1.15f},
         {{ 46.5f, 0.0f,  69.0f}, 0.88f},
         {{-14.0f, 0.0f,  50.0f}, 1.05f},
@@ -734,14 +734,14 @@ int main() {
     };
     std::vector<BushInstance> villageBushes = {
         // Homestead 1 perimeter & garden
-        {{ 16.5f, 0.0f,  30.5f}, 1.10f},
-        {{ 17.5f, 0.0f,  34.0f}, 1.25f},
-        {{ 25.5f, 0.0f,  28.0f}, 0.95f},
-        {{ 26.8f, 0.0f,  30.0f}, 1.15f},
+        {{ 23.5f, 0.0f,  30.5f}, 1.10f},
+        {{ 24.5f, 0.0f,  34.0f}, 1.25f},
+        {{ 31.5f, 0.0f,  28.0f}, 0.95f},
+        {{ 32.8f, 0.0f,  30.0f}, 1.15f},
         // Along footpath
-        {{  4.8f, 0.0f,  15.0f}, 1.05f},
-        {{  8.5f, 0.0f,  20.0f}, 1.20f},
-        {{ 13.5f, 0.0f,  26.0f}, 1.10f},
+        {{  4.0f, 0.0f,  24.0f}, 1.05f},
+        {{  7.5f, 0.0f,  28.0f}, 1.20f},
+        {{ 11.5f, 0.0f,  33.0f}, 1.10f},
         // Around launchpad perimeter
         {{ -9.2f, 0.0f,   2.0f}, 1.15f},
         {{  9.2f, 0.0f,   2.0f}, 1.00f},
@@ -839,11 +839,11 @@ int main() {
 
     std::vector<glm::vec3> boulderPositions = {
         // Foreground roadside boulder cluster (matching reference art bottom right)
-        {-22.0f, 0.5f, -22.5f},
-        {-20.5f, 0.7f, -21.0f},
-        {-22.8f, 0.4f, -20.0f},
-        {-19.2f, 0.6f, -19.5f},
-        {-21.0f, 0.9f, -18.2f},
+        {-26.0f, 0.5f, -26.5f},
+        {-24.5f, 0.7f, -25.0f},
+        {-27.8f, 0.4f, -24.0f},
+        {-23.2f, 0.6f, -23.5f},
+        {-25.0f, 0.9f, -22.2f},
         // Meadow & pond boulders
         { 16.0f, 0.6f, -10.0f},
         {-12.0f, 0.5f,  12.0f},

@@ -518,38 +518,40 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    const int numSteps = 340;
-    const float roadWidth = 5.8f;
+    const int numSteps = 550;
+    const float roadWidth = 4.8f;
     const int numCross = 13;
 
     // Catmull-Rom control points guiding the authentic Bengali rural earthen road:
-    // Winding gracefully from foreground-left in front of the viewer, past the launch pad,
-    // through the village center, cottages, trees, pond and distant rolling horizon.
+    // 1. Starts in foreground right, skirting well clear of the launchpad (4m+ green buffer).
+    // 2. Weaves gracefully through the village clearing, safely clear of Homestead 1 (14m+ front lawn).
+    // 3. Extends continuously across the rolling meadows, far hills, and into the horizon mountain pass!
     struct SplinePoint {
         float x;
         float z;
     };
 
     const std::vector<SplinePoint> controlPoints = {
-        {-34.0f, -26.0f}, // Foreground left entrance (clearly visible in Camera 1 Overview!)
-        {-27.0f, -17.0f},
-        {-19.5f,  -8.0f}, // Sweeps smoothly past western perimeter of the launch pad
-        {-13.5f,   1.0f},
-        { -8.5f,   6.8f}, // Curves toward platform entrance gate
-        { -2.0f,   8.8f}, // Lines up with platform gate
-        {  2.5f,  11.5f}, // Sweeps into open village meadow
-        {  7.5f,  18.0f},
-        { 13.5f,  26.5f}, // Weaves between Cottage 1 (21, 31) and Banyan Tree 1 (13.8, 32.5)
-        { 19.5f,  36.5f},
-        { 25.5f,  47.5f}, // Sweeps past the village pond bank (46, 36)
-        { 30.0f,  59.0f},
-        { 32.5f,  70.5f}, // Reaches near Homestead 2 (38, 68) & Haystacks
-        { 29.5f,  83.5f},
-        { 22.0f,  98.0f}, // Passes Homestead 4 (16, 96)
-        { 13.0f, 115.0f},
-        {  3.0f, 138.0f}, // North grove trail
-        { -6.0f, 162.0f},
-        {-15.0f, 188.0f}  // Disappears gracefully into the distant hills
+        {-28.0f, -34.0f}, // 0: Far foreground right (screen view)
+        {-22.0f, -22.0f}, // 1: Approaching the launchpad clearing
+        {-17.5f, -10.0f}, // 2: Generously outside the launchpad (X <= -17.5 vs platform edge X = -8)
+        {-15.5f,   0.0f}, // 3: Along west perimeter of launchpad (platform edge is at X = -8, 5m+ clearance)
+        {-14.5f,  10.0f}, // 4: Beyond the north-west platform corner (platform ends at Z = 8, 4m+ clearance)
+        {-11.0f,  18.0f}, // 5: Curving smoothly in front of the platform clearing
+        { -4.0f,  23.0f}, // 6: In front of platform gate (Z = 23 vs gate at Z = 8)
+        {  3.0f,  26.0f}, // 7: Sweeping into the open meadow clearing
+        {  9.5f,  31.0f}, // 8: Well clear of Homestead 1 at X = 27 (15m+ front yard!)
+        { 15.0f,  40.0f}, // 9: Past Banyan tree and cottage front-yard
+        { 19.0f,  54.0f}, // 10: Curving beside the pond bank
+        { 22.0f,  72.0f}, // 11: Passing Homestead 2 area
+        { 23.5f,  95.0f}, // 12: Winding past Homestead 4 area
+        { 21.0f, 125.0f}, // 13: North grove corridor
+        { 16.5f, 165.0f}, // 14: Rolling meadow vista
+        { 11.0f, 215.0f}, // 15: Snaking towards distant rolling hills
+        {  5.0f, 275.0f}, // 16: Visible meandering path in far landscape
+        { -1.0f, 345.0f}, // 17: Cresting far horizon ridges
+        { -7.0f, 425.0f}, // 18: Reaching the majestic distant mountain pass
+        {-12.0f, 510.0f}  // 19: Seamlessly vanishing into the furthest horizon!
     };
 
     auto evaluateSpline = [&](float globalT, glm::vec2& outPos, glm::vec2& outTan) {
@@ -653,7 +655,7 @@ Mesh ModelGenerator::createCurvedDirtRoad() {
                 vColor = colGoldenRoad;
             }
 
-            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.35f}});
+            vertices.push_back({{vertXZ.x, vertY, vertXZ.y}, norm, vColor, {uCoord, accumDist * 0.16f}});
         }
     }
 
