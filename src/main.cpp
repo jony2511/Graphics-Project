@@ -50,6 +50,10 @@ glm::vec3 balloonVelocity(0.0f, 0.0f, 0.0f);
 float basketSwayRoll = 0.0f;
 float basketSwayPitch = 0.0f;
 
+// Manual Balloon Steering Controls (Arrow Keys & WASD)
+float userSteerX = 0.0f; // -1.0 (Left), +1.0 (Right)
+float userSteerZ = 0.0f; // +1.0 (Forward), -1.0 (Backward)
+
 // Wind Physics System
 float windSpeed = 14.5f;       // km/h
 float windHeadingDeg = 48.0f;  // Degrees from North
@@ -283,8 +287,34 @@ void processInput(GLFWwindow* window) {
         hPressed = false;
     }
 
-    // Free-fly Camera Movement
-    if (camera.mode == CAMERA_FREE_FLY) {
+    // ==========================================
+    // Interactive Balloon Flight Steering (Arrow Keys & WASD)
+    // ==========================================
+    userSteerX = 0.0f;
+    userSteerZ = 0.0f;
+
+    // Arrow keys steer the hot air balloon in all camera modes
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        userSteerX -= 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        userSteerX += 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        userSteerZ += 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        userSteerZ -= 1.0f;
+
+    // In Overview, Follow, or Basket POV modes, WASD can also steer the balloon
+    if (camera.mode != CAMERA_FREE_FLY) {
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            userSteerX -= 1.0f;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            userSteerX += 1.0f;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            userSteerZ += 1.0f;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            userSteerZ -= 1.0f;
+    } else {
+        // In Free-fly spectator mode, WASD / QE controls the spectator camera
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             camera.processKeyboard(CAM_FORWARD, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -297,15 +327,6 @@ void processInput(GLFWwindow* window) {
             camera.processKeyboard(CAM_UP, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             camera.processKeyboard(CAM_DOWN, deltaTime);
-
-        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-            camera.processKeyboard(CAM_YAW_LEFT, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-            camera.processKeyboard(CAM_YAW_RIGHT, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-            camera.processKeyboard(CAM_PITCH_UP, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-            camera.processKeyboard(CAM_PITCH_DOWN, deltaTime);
     }
 }
 
@@ -347,13 +368,15 @@ int main() {
     std::cout << "  Hot Air Balloon 3D: Phase 6 Fully Operational\n";
     std::cout << "  OpenGL Version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << "\n";
     std::cout << "  Renderer:       " << glGetString(GL_RENDERER) << "\n";
-    std::cout << "========================================================\n";
-    std::cout << "Phase 6 Features Active:\n";
-    std::cout << "  * 2D Orthographic Avionics Dashboard HUD Overlay\n";
-    std::cout << "  * Live Flight Telemetry: Altitude Bar & Vertical Speed Indicator (VSI)\n";
-    std::cout << "  * Wind & Heading Instrument: 360-deg Compass Rose & Velocity Meter\n";
-    std::cout << "  * Burner State Indicator, Camera Pill & Lighting Mode Badge\n";
-    std::cout << "  * Quick-Reference Controls Banner & Live Dynamic FPS Readout\n";
+    std::cout << "Flight & Steering Controls:\n";
+    std::cout << "  * ARROW KEYS (Left / Right): Steer Balloon Left / Right\n";
+    std::cout << "  * ARROW KEYS (Up / Down)   : Steer Balloon Forward / Backward\n";
+    std::cout << "  * F                        : Toggle Burner Flame (Ascend / Descend)\n";
+    std::cout << "  * SPACE                    : Pause / Resume Simulation\n";
+    std::cout << "  * 1, 2, 3, 4               : Switch Camera Modes (Overview, Follow, Free-fly, Basket)\n";
+    std::cout << "  * L                        : Cycle Day / Sunset / Night / Dawn Lighting\n";
+    std::cout << "  * R                        : Reset Balloon to Launch Position\n";
+    std::cout << "  * H                        : Toggle HUD Dashboard\n";
     std::cout << "========================================================\n";
 
     glEnable(GL_DEPTH_TEST);
@@ -627,22 +650,32 @@ int main() {
                 }
             }
 
-            // Horizontal wind drag and drift (smooth inertia)
-            float driftTargetX = windVector.x * (balloonAltitude / 14.0f);
-            float driftTargetZ = windVector.z * (balloonAltitude / 14.0f);
-            balloonVelocity.x += (driftTargetX - balloonVelocity.x) * 0.25f * deltaTime;
-            balloonVelocity.z += (driftTargetZ - balloonVelocity.z) * 0.25f * deltaTime;
+            // Horizontal wind drag and interactive flight steering (Arrow Keys)
+            float maxSteerSpeed = 8.5f; // m/s (~30.6 km/h)
+            float driftTargetX = (windVector.x * (balloonAltitude / 14.0f)) + (userSteerX * maxSteerSpeed);
+            float driftTargetZ = (windVector.z * (balloonAltitude / 14.0f)) + (userSteerZ * maxSteerSpeed);
+
+            // Responsive steering acceleration when user is actively steering; smooth aerodynamic inertia when coasting
+            bool isSteeringActive = (std::abs(userSteerX) > 0.01f || std::abs(userSteerZ) > 0.01f);
+            float steerResponse = isSteeringActive ? 2.4f : 0.65f;
+
+            balloonVelocity.x += (driftTargetX - balloonVelocity.x) * steerResponse * deltaTime;
+            balloonVelocity.z += (driftTargetZ - balloonVelocity.z) * steerResponse * deltaTime;
 
             balloonPosition.x += balloonVelocity.x * deltaTime;
             balloonPosition.z += balloonVelocity.z * deltaTime;
             balloonPosition.y = balloonAltitude;
 
-            // Multi-Axis Basket Pendulum Sway Physics
+            // Soft terrain boundaries (keeps balloon inside the scenic world)
+            balloonPosition.x = glm::clamp(balloonPosition.x, -85.0f, 85.0f);
+            balloonPosition.z = glm::clamp(balloonPosition.z, -85.0f, 85.0f);
+
+            // Multi-Axis Basket Pendulum Sway Physics (dynamically tilts with steering forces)
             float swayFreq = 2.3f;
             float naturalDamping = 0.95f;
             float windGustForce = (windSpeed / 15.0f);
-            basketSwayRoll = (3.4f * std::sin(simulationTime * swayFreq) + balloonVelocity.x * 2.2f) * windGustForce * naturalDamping;
-            basketSwayPitch = (2.6f * std::cos(simulationTime * (swayFreq * 0.88f)) + balloonVelocity.z * 2.2f) * windGustForce * naturalDamping;
+            basketSwayRoll = glm::clamp((3.4f * std::sin(simulationTime * swayFreq) + balloonVelocity.x * 2.2f) * windGustForce * naturalDamping, -18.0f, 18.0f);
+            basketSwayPitch = glm::clamp((2.6f * std::cos(simulationTime * (swayFreq * 0.88f)) + balloonVelocity.z * 2.2f) * windGustForce * naturalDamping, -18.0f, 18.0f);
 
             // ==========================================
             // 3. Environmental Rotations & Drifts
@@ -679,9 +712,9 @@ int main() {
             currentFps = fps;
             std::ostringstream ss;
             ss << "Hot Air Balloon 3D | Alt: " << std::fixed << std::setprecision(1) << balloonPosition.y << "m"
-               << " | Wind: " << static_cast<int>(windSpeed) << " km/h (" << static_cast<int>(windHeadingDeg) << " deg)"
+               << " | Steer: [Arrows]"
                << " | Burner: [" << (burnerActive ? "FIRE (F)" : "OFF (F)") << "]"
-               << " | Mode: " << camera.getModeName()
+               << " | Cam: " << camera.getModeName()
                << " | " << getLightingModeName(currentLightMode) << " [L]"
                << " | FPS: " << static_cast<int>(fps);
             glfwSetWindowTitle(window, ss.str().c_str());
