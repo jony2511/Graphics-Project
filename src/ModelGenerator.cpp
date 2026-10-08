@@ -694,7 +694,7 @@ Mesh ModelGenerator::createRainbowBalloonEnvelope(float radius, float height, in
                 int cIdx = (int)((v * 5.0f) + (goreIndex % 2) * 0.5f) % 5;
                 vertColor = sunsetColors[cIdx];
                 if (v < 0.028f) vertColor = glm::vec3(0.35f, 0.12f, 0.10f);
-            } else {
+            } else if (colorScheme == 2) {
                 // Ocean Teal (Background Balloon 2)
                 const glm::vec3 oceanColors[5] = {
                     glm::vec3(0.08f, 0.32f, 0.72f), // Royal Blue
@@ -706,6 +706,18 @@ Mesh ModelGenerator::createRainbowBalloonEnvelope(float radius, float height, in
                 int cIdx = (int)((v * 5.0f) + (goreIndex % 2) * 0.5f) % 5;
                 vertColor = oceanColors[cIdx];
                 if (v < 0.028f) vertColor = glm::vec3(0.06f, 0.18f, 0.35f);
+            } else {
+                // Emerald Gold (Background Balloon 3)
+                const glm::vec3 emeraldColors[5] = {
+                    glm::vec3(0.12f, 0.65f, 0.28f), // Emerald Green
+                    glm::vec3(0.96f, 0.85f, 0.15f), // Golden Yellow
+                    glm::vec3(0.18f, 0.78f, 0.45f), // Spring Mint
+                    glm::vec3(0.96f, 0.96f, 0.96f), // Pure White
+                    glm::vec3(0.08f, 0.45f, 0.20f)  // Forest Green
+                };
+                int cIdx = (int)((v * 5.0f) + (goreIndex % 2) * 0.5f) % 5;
+                vertColor = emeraldColors[cIdx];
+                if (v < 0.028f) vertColor = glm::vec3(0.06f, 0.28f, 0.12f);
             }
 
             // Realistic vertical load tape seam groove between gores

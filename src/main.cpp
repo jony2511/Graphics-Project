@@ -404,9 +404,10 @@ int main() {
     Mesh burnerFlame = ModelGenerator::createCone(0.55f, 1.4f, 16, glm::vec3(1.0f, 0.55f, 0.05f));
     Mesh riggingCable = ModelGenerator::createCylinder(0.025f, 0.025f, 3.4f, 8, glm::vec3(0.20f, 0.20f, 0.22f));
 
-    // E. Background Balloons
+    // E. Background Balloons (Decoupled Visual Themes & Scales)
     Mesh sunsetEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 12, 1);
     Mesh oceanEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 12, 2);
+    Mesh emeraldEnvelope = ModelGenerator::createRainbowBalloonEnvelope(4.8f, 9.6f, 36, 12, 3);
 
     // F. Clouds, Birds & Celestial Entities
     Mesh cloudCluster = ModelGenerator::createCloudCluster();
@@ -762,31 +763,63 @@ int main() {
         rollingTerrain.draw();
         dirtRoad.draw();
 
-        // ==========================================
-        // 3. Draw Dynamic Ground Shadow
-        // ==========================================
-        if (curSunDir.y < -0.1f) {
-            float tShadow = -(balloonPosition.y - 0.06f) / curSunDir.y;
-            float shadowX = balloonPosition.x + tShadow * curSunDir.x;
-            float shadowZ = balloonPosition.z + tShadow * curSunDir.z;
+        // Compute Decoupled Background Balloon Trajectories
+        float bg1Alt = 28.0f + 2.2f * std::sin(simulationTime * 0.40f + 1.2f);
+        float bg1X   = 34.0f + 3.2f * std::sin(simulationTime * 0.16f);
+        float bg1Z   = 24.0f + 2.0f * std::cos(simulationTime * 0.14f);
+        glm::vec3 bg1Pos(bg1X, bg1Alt, bg1Z);
+        float bg1Scale = 0.65f;
+        float bg1Roll  = 2.5f * std::sin(simulationTime * 1.8f);
+        float bg1Pitch = 1.8f * std::cos(simulationTime * 1.5f);
 
-            float shadowScale = 1.0f / (1.0f + 0.032f * balloonPosition.y);
-            float shadowAlpha = glm::clamp(0.55f - 0.012f * balloonPosition.y, 0.14f, 0.55f);
+        float bg2Alt = 36.0f + 2.8f * std::cos(simulationTime * 0.35f + 0.8f);
+        float bg2X   = -30.0f + 3.8f * std::cos(simulationTime * 0.14f + 1.2f);
+        float bg2Z   = 36.0f + 2.8f * std::sin(simulationTime * 0.12f + 0.4f);
+        glm::vec3 bg2Pos(bg2X, bg2Alt, bg2Z);
+        float bg2Scale = 0.52f;
+        float bg2Roll  = -2.2f * std::cos(simulationTime * 1.6f);
+        float bg2Pitch = 1.6f * std::sin(simulationTime * 1.4f);
 
-            if (currentLightMode == LIGHT_NIGHT) {
-                shadowAlpha *= 0.45f;
+        float bg3Alt = 48.0f + 2.2f * std::sin(simulationTime * 0.28f + 2.4f);
+        float bg3X   = 12.0f + 4.2f * std::sin(simulationTime * 0.11f + 1.8f);
+        float bg3Z   = 68.0f + 3.0f * std::cos(simulationTime * 0.10f + 1.0f);
+        glm::vec3 bg3Pos(bg3X, bg3Alt, bg3Z);
+        float bg3Scale = 0.40f;
+        float bg3Roll  = 1.6f * std::sin(simulationTime * 1.4f);
+        float bg3Pitch = 1.2f * std::cos(simulationTime * 1.2f);
+
+        // ==========================================
+        // 3. Draw Dynamic Ground Shadows (All Balloons)
+        // ==========================================
+        auto drawBalloonShadow = [&](const glm::vec3& bPos, float bScale) {
+            if (curSunDir.y < -0.1f) {
+                float tShadow = -(bPos.y - 0.06f) / curSunDir.y;
+                float shadowX = bPos.x + tShadow * curSunDir.x;
+                float shadowZ = bPos.z + tShadow * curSunDir.z;
+
+                float shadowScale = bScale / (1.0f + 0.032f * bPos.y);
+                float shadowAlpha = glm::clamp((0.55f - 0.012f * bPos.y) * bScale, 0.06f, 0.45f);
+
+                if (currentLightMode == LIGHT_NIGHT) {
+                    shadowAlpha *= 0.45f;
+                }
+
+                glm::mat4 sModel = glm::translate(glm::mat4(1.0f), glm::vec3(shadowX, 0.06f, shadowZ));
+                sModel = glm::scale(sModel, glm::vec3(shadowScale, 1.0f, shadowScale * 1.15f));
+                sceneShader.setMat4("uModel", sModel);
+                sceneShader.setFloat("uAlpha", shadowAlpha);
+                sceneShader.setFloat("uSpecularStrength", 0.0f);
+                groundShadow.draw();
             }
+        };
 
-            model = glm::translate(glm::mat4(1.0f), glm::vec3(shadowX, 0.06f, shadowZ));
-            model = glm::scale(model, glm::vec3(shadowScale, 1.0f, shadowScale * 1.15f));
-            sceneShader.setMat4("uModel", model);
-            sceneShader.setFloat("uAlpha", shadowAlpha);
-            sceneShader.setFloat("uSpecularStrength", 0.0f);
-            groundShadow.draw();
+        drawBalloonShadow(balloonPosition, 1.0f);
+        drawBalloonShadow(bg1Pos, bg1Scale);
+        drawBalloonShadow(bg2Pos, bg2Scale);
+        drawBalloonShadow(bg3Pos, bg3Scale);
 
-            sceneShader.setFloat("uAlpha", 1.0f);
-            sceneShader.setFloat("uSpecularStrength", 0.40f);
-        }
+        sceneShader.setFloat("uAlpha", 1.0f);
+        sceneShader.setFloat("uSpecularStrength", 0.40f);
 
         // ==========================================
         // 4. Draw Launch Platform, Fences & Mast
@@ -993,115 +1026,88 @@ int main() {
         }
 
         // ==========================================
-        // 7. Draw Background Balloons (Decoupled Hierarchies)
+        // 7 & 8. Hot Air Balloon Fleet (Hierarchical Rig Engine)
         // ==========================================
-        {
-            float bg1Alt = 26.0f + 2.2f * std::sin(simulationTime * 0.45f + 1.2f);
-            float bg1DriftX = 36.0f + 4.5f * std::sin(simulationTime * 0.18f);
-            float bg1DriftZ = -42.0f + 2.0f * std::cos(simulationTime * 0.20f);
-            glm::vec3 bg1Pos(bg1DriftX, bg1Alt, bg1DriftZ);
+        auto drawHotAirBalloon = [&](const glm::vec3& pos, float scale, float swayR, float swayP,
+                                     Mesh& envMesh, bool flameOn, float flameIntensity) {
+            glm::mat4 bRoot = glm::translate(glm::mat4(1.0f), pos);
+            bRoot = glm::scale(bRoot, glm::vec3(scale));
 
-            glm::mat4 bg1Root = glm::translate(glm::mat4(1.0f), bg1Pos);
-            bg1Root = glm::scale(bg1Root, glm::vec3(0.55f, 0.55f, 0.55f));
-
-            glm::mat4 envModel = glm::translate(bg1Root, glm::vec3(0.0f, 6.8f, 0.0f));
+            // A. Balloon Envelope
+            glm::mat4 envModel = glm::translate(bRoot, glm::vec3(0.0f, 6.8f, 0.0f));
             sceneShader.setMat4("uModel", envModel);
-            sunsetEnvelope.draw();
+            envMesh.draw();
 
-            glm::mat4 basketModel = glm::translate(bg1Root, glm::vec3(0.0f, -0.6f, 0.0f));
-            sceneShader.setMat4("uModel", basketModel);
+            // B. Throat Skirt Collar
+            glm::mat4 skirtModel = glm::translate(bRoot, glm::vec3(0.0f, 1.9f, 0.0f));
+            sceneShader.setMat4("uModel", skirtModel);
+            whiteSkirt.draw();
+
+            // C. Burner Ring
+            glm::mat4 burnerModel = glm::translate(bRoot, glm::vec3(0.0f, 1.25f, 0.0f));
+            sceneShader.setMat4("uModel", burnerModel);
+            burnerRing.draw();
+
+            // D. Burner Flame
+            if (flameOn) {
+                float fScale = (0.95f + 0.35f * std::sin(simulationTime * 24.0f + pos.x)) * flameIntensity;
+                glm::mat4 fModel = glm::translate(bRoot, glm::vec3(0.0f, 1.4f, 0.0f));
+                fModel = glm::scale(fModel, glm::vec3(fScale, fScale * 1.35f, fScale));
+                sceneShader.setMat4("uModel", fModel);
+                sceneShader.setFloat("uEmissive", 1.0f);
+                burnerFlame.draw();
+                sceneShader.setFloat("uEmissive", 0.0f);
+            }
+
+            // E. Swaying Woven Basket
+            glm::mat4 bTransform = glm::rotate(bRoot, glm::radians(swayR), glm::vec3(0, 0, 1));
+            bTransform = glm::rotate(bTransform, glm::radians(swayP), glm::vec3(1, 0, 0));
+
+            glm::mat4 bModel = glm::translate(bTransform, glm::vec3(0.0f, -0.6f, 0.0f));
+            sceneShader.setMat4("uModel", bModel);
             wovenBasket.draw();
-        }
 
-        {
-            float bg2Alt = 22.0f + 1.6f * std::cos(simulationTime * 0.35f + 0.6f);
-            float bg2DriftX = -42.0f + 3.5f * std::cos(simulationTime * 0.15f);
-            float bg2DriftZ = -58.0f + 2.2f * std::sin(simulationTime * 0.14f);
-            glm::vec3 bg2Pos(bg2DriftX, bg2Alt, bg2DriftZ);
+            // F. 8 Suspension Rigging Cables
+            float sRadius = 1.22f;
+            float sY = 1.35f;
+            float bRimY = 0.30f;
+            float bAnchors[8][2] = {
+                {-1.15f, -1.15f}, { 0.00f, -1.18f}, { 1.15f, -1.15f},
+                { 1.18f,  0.00f}, { 1.15f,  1.15f}, { 0.00f,  1.18f},
+                {-1.15f,  1.15f}, {-1.18f,  0.00f}
+            };
 
-            glm::mat4 bg2Root = glm::translate(glm::mat4(1.0f), bg2Pos);
-            bg2Root = glm::scale(bg2Root, glm::vec3(0.38f, 0.38f, 0.38f));
+            for (int i = 0; i < 8; ++i) {
+                float angle = (float)i * (2.0f * (float)M_PI / 8.0f);
+                glm::vec3 topA(std::cos(angle) * sRadius, sY, std::sin(angle) * sRadius);
+                glm::vec3 botA(bAnchors[i][0], bRimY, bAnchors[i][1]);
 
-            glm::mat4 envModel = glm::translate(bg2Root, glm::vec3(0.0f, 6.8f, 0.0f));
-            sceneShader.setMat4("uModel", envModel);
-            oceanEnvelope.draw();
+                glm::vec3 cMid = (topA + botA) * 0.5f;
+                glm::vec3 dir = topA - botA;
+                float cLen = glm::length(dir);
+                dir = glm::normalize(dir);
 
-            glm::mat4 basketModel = glm::translate(bg2Root, glm::vec3(0.0f, -0.6f, 0.0f));
-            sceneShader.setMat4("uModel", basketModel);
-            wovenBasket.draw();
-        }
+                glm::mat4 cModel = glm::translate(bTransform, cMid);
+                glm::vec3 upV(0.0f, 1.0f, 0.0f);
+                glm::vec3 axis = glm::cross(upV, dir);
+                float cosA = glm::dot(upV, dir);
+                if (glm::length(axis) > 0.001f) {
+                    cModel = glm::rotate(cModel, std::acos(cosA), glm::normalize(axis));
+                }
+                cModel = glm::scale(cModel, glm::vec3(1.0f, cLen / 3.4f, 1.0f));
 
-        // ==========================================
-        // 8. Draw Main Hot Air Balloon (Hierarchical Rig)
-        // ==========================================
-        glm::mat4 balloonRoot = glm::translate(glm::mat4(1.0f), balloonPosition);
-
-        // A. Vibrant Rainbow Balloon Envelope
-        glm::mat4 envelopeModel = glm::translate(balloonRoot, glm::vec3(0.0f, 6.8f, 0.0f));
-        sceneShader.setMat4("uModel", envelopeModel);
-        rainbowEnvelope.draw();
-
-        // B. White Throat Skirt Collar
-        glm::mat4 skirtModel = glm::translate(balloonRoot, glm::vec3(0.0f, 1.9f, 0.0f));
-        sceneShader.setMat4("uModel", skirtModel);
-        whiteSkirt.draw();
-
-        // D. Burner Unit & Flickering Flame
-        glm::mat4 burnerModel = glm::translate(balloonRoot, glm::vec3(0.0f, 1.25f, 0.0f));
-        sceneShader.setMat4("uModel", burnerModel);
-        burnerRing.draw();
-
-        if (burnerActive) {
-            float flameScale = 0.95f + 0.35f * std::sin(simulationTime * 24.0f);
-            glm::mat4 flameModel = glm::translate(balloonRoot, glm::vec3(0.0f, 1.4f, 0.0f));
-            flameModel = glm::scale(flameModel, glm::vec3(flameScale, flameScale * 1.35f, flameScale));
-            sceneShader.setMat4("uModel", flameModel);
-            sceneShader.setFloat("uEmissive", 1.0f);
-            burnerFlame.draw();
-            sceneShader.setFloat("uEmissive", 0.0f);
-        }
-
-        // E. Woven Basket with Dynamic Multi-Axis Sway
-        glm::mat4 basketTransform = glm::rotate(balloonRoot, glm::radians(basketSwayRoll), glm::vec3(0, 0, 1));
-        basketTransform = glm::rotate(basketTransform, glm::radians(basketSwayPitch), glm::vec3(1, 0, 0));
-
-        glm::mat4 basketModel = glm::translate(basketTransform, glm::vec3(0.0f, -0.6f, 0.0f));
-        sceneShader.setMat4("uModel", basketModel);
-        wovenBasket.draw();
-
-        // F. 8 Suspension Rigging Cables
-        float skirtRadius = 1.22f;
-        float skirtY = 1.35f;
-        float basketRimY = 0.30f;
-
-        float basketAnchors[8][2] = {
-            {-1.15f, -1.15f}, { 0.00f, -1.18f}, { 1.15f, -1.15f},
-            { 1.18f,  0.00f}, { 1.15f,  1.15f}, { 0.00f,  1.18f},
-            {-1.15f,  1.15f}, {-1.18f,  0.00f}
+                sceneShader.setMat4("uModel", cModel);
+                riggingCable.draw();
+            }
         };
 
-        for (int i = 0; i < 8; ++i) {
-            float angle = (float)i * (2.0f * (float)M_PI / 8.0f);
-            glm::vec3 topAnchor(std::cos(angle) * skirtRadius, skirtY, std::sin(angle) * skirtRadius);
-            glm::vec3 botAnchor(basketAnchors[i][0], basketRimY, basketAnchors[i][1]);
+        // Render Background Balloons (Different scales, altitudes & decoupled trajectories)
+        drawHotAirBalloon(bg1Pos, bg1Scale, bg1Roll, bg1Pitch, sunsetEnvelope, true, 0.45f);
+        drawHotAirBalloon(bg2Pos, bg2Scale, bg2Roll, bg2Pitch, oceanEnvelope, false, 0.0f);
+        drawHotAirBalloon(bg3Pos, bg3Scale, bg3Roll, bg3Pitch, emeraldEnvelope, false, 0.0f);
 
-            glm::vec3 cableMid = (topAnchor + botAnchor) * 0.5f;
-            glm::vec3 dir = topAnchor - botAnchor;
-            float cableLen = glm::length(dir);
-            dir = glm::normalize(dir);
-
-            glm::mat4 cableModel = glm::translate(basketTransform, cableMid);
-            glm::vec3 upVec(0.0f, 1.0f, 0.0f);
-            glm::vec3 axis = glm::cross(upVec, dir);
-            float cosA = glm::dot(upVec, dir);
-            if (glm::length(axis) > 0.001f) {
-                cableModel = glm::rotate(cableModel, std::acos(cosA), glm::normalize(axis));
-            }
-            cableModel = glm::scale(cableModel, glm::vec3(1.0f, cableLen / 3.4f, 1.0f));
-
-            sceneShader.setMat4("uModel", cableModel);
-            riggingCable.draw();
-        }
+        // Render Main Hero Hot Air Balloon (Full physics & user burner control)
+        drawHotAirBalloon(balloonPosition, 1.0f, basketSwayRoll, basketSwayPitch, rainbowEnvelope, burnerActive, 1.0f);
 
         // ==========================================
         // 9. Render 2D Orthographic Avionics HUD Overlay (Disabled by default per user request)
