@@ -195,6 +195,21 @@ void main() {
         return;
     }
 
+    if (uMaterialType == 3) {
+        // High-fidelity soft feathered ground shadow (smooth penumbra without hard polygon boundary)
+        float r = length(TexCoords);
+        if (r >= 1.0) discard;
+
+        float s = clamp(1.0 - r, 0.0, 1.0);
+        float penumbra = s * s * (3.0 - 2.0 * s); // Smooth cubic fade to zero at edge
+
+        vec3 shadowTone = vec3(0.015, 0.035, 0.015);
+        FragColor = vec4(shadowTone, uAlpha * penumbra);
+        gNormal = vec4(0.0, 1.0, 0.0, 0.0);
+        gPosition = vec4(FragPos, 0.0);
+        return;
+    }
+
     vec3 result;
     vec3 norm = (length(Normal) > 0.001) ? normalize(Normal) : vec3(0.0, 1.0, 0.0);
     float dist = length(uViewPos - FragPos);

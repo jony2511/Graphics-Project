@@ -626,7 +626,7 @@ int main() {
     Mesh birdRightWing = ModelGenerator::createBirdWing(false);
 
     Mesh celestialDisc = ModelGenerator::createSphere(7.5f, 18, 18, glm::vec3(1.0f, 0.95f, 0.75f));
-    Mesh groundShadow = ModelGenerator::createShadowDisc(5.2f, 32);
+    Mesh groundShadow = ModelGenerator::createShadowDisc(1.0f, 36);
 
     // Clouds layout
     std::vector<Cloud> clouds = {
@@ -1120,96 +1120,97 @@ int main() {
         // ==========================================
         // 3. Draw Dynamic Ground Shadows (Props, Settlements, Foliage & Balloons)
         // ==========================================
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE); // Soft overlapping shadows without depth-fighting
+        sceneShader.setInt("uMaterialType", 3); // Soft feathered shadow shader (cubic penumbra falloff)
         sceneShader.setFloat("uSpecularStrength", 0.0f);
         sceneShader.setFloat("uShininess", 1.0f);
 
-        float sunDenominator = std::max(-curSunDir.y, 0.12f);
-        float timeOfDayShadowAlpha = 0.38f;
-        if (currentLightMode == LIGHT_NIGHT) timeOfDayShadowAlpha = 0.14f;
-        else if (currentLightMode == LIGHT_SUNSET) timeOfDayShadowAlpha = 0.44f;
-        else if (currentLightMode == LIGHT_DAWN) timeOfDayShadowAlpha = 0.28f;
+        float sunDenominator = std::max(-curSunDir.y, 0.18f);
+        float sunStretch = std::clamp(1.0f / sunDenominator, 1.0f, 2.0f);
+
+        float timeOfDayShadowAlpha = 0.28f;
+        if (currentLightMode == LIGHT_NIGHT) timeOfDayShadowAlpha = 0.10f;
+        else if (currentLightMode == LIGHT_SUNSET) timeOfDayShadowAlpha = 0.34f;
+        else if (currentLightMode == LIGHT_DAWN) timeOfDayShadowAlpha = 0.22f;
 
         auto drawSoftGroundShadow = [&](const glm::vec3& objPos, float emitterHeight, float radX, float radZ, float baseAlpha) {
             if (curSunDir.y < -0.05f) {
                 float tProj = emitterHeight / sunDenominator;
                 float shadX = objPos.x + tProj * curSunDir.x;
                 float shadZ = objPos.z + tProj * curSunDir.z;
-                float groundY = ModelGenerator::getTerrainHeight(shadX, shadZ) + 0.038f;
+                float groundY = ModelGenerator::getTerrainHeight(shadX, shadZ) + 0.035f;
 
                 glm::mat4 sModel = glm::translate(glm::mat4(1.0f), glm::vec3(shadX, groundY, shadZ));
                 sModel = glm::scale(sModel, glm::vec3(radX, 1.0f, radZ));
                 sceneShader.setMat4("uModel", sModel);
-                sceneShader.setFloat("uAlpha", baseAlpha * (timeOfDayShadowAlpha / 0.38f));
+                sceneShader.setFloat("uAlpha", baseAlpha * (timeOfDayShadowAlpha / 0.28f));
                 groundShadow.draw();
             }
         };
 
-        // A. Launchpad Platform & Mast Shadows
-        drawSoftGroundShadow(glm::vec3(0.0f, 0.0f, 0.0f), 0.25f, 9.2f, 9.2f, 0.42f);
-        for (int mStep = 1; mStep <= 4; ++mStep) {
-            drawSoftGroundShadow(mastPos, (float)mStep * 2.0f, 0.55f, 0.55f, 0.28f);
-        }
+        // A. Launchpad Platform & Mast
+        drawSoftGroundShadow(glm::vec3(curSunDir.x * 0.35f, 0.0f, curSunDir.z * 0.35f), 0.2f, 8.4f, 8.4f, 0.20f);
+        drawSoftGroundShadow(mastPos, 3.5f, 0.7f, 1.4f * sunStretch, 0.22f);
 
-        // B. Large Spreading Banyan Shade Tree Shadows
+        // B. Large Spreading Banyan Shade Trees (One natural canopy shadow per tree)
         for (const auto& bt : banyanTrees) {
-            drawSoftGroundShadow(bt.pos, 1.5f * bt.scale, 2.2f * bt.scale, 2.2f * bt.scale, 0.44f);
-            drawSoftGroundShadow(bt.pos, 8.5f * bt.scale, 6.4f * bt.scale, 7.0f * bt.scale, 0.38f);
+            float radX = 4.8f * bt.scale;
+            float radZ = 4.8f * bt.scale * (1.0f + 0.15f * sunStretch);
+            drawSoftGroundShadow(bt.pos, 5.2f * bt.scale, radX, radZ, 0.28f);
         }
 
-        // C. Coconut Palm Tree Shadows (Base and Crown)
+        // C. Coconut Palm Trees (Directional crown shadow + small trunk base shadow)
         for (const auto& palm : horizonPalms) {
-            drawSoftGroundShadow(palm.pos, 1.0f * palm.scale, 1.3f * palm.scale, 1.3f * palm.scale, 0.38f);
-            float crownH = (palm.isTall ? 12.5f : 10.0f) * palm.scale;
-            drawSoftGroundShadow(palm.pos, crownH, 4.2f * palm.scale, 4.6f * palm.scale, 0.36f);
+            drawSoftGroundShadow(palm.pos, 0.4f * palm.scale, 0.7f * palm.scale, 0.7f * palm.scale, 0.22f);
+            float crownH = (palm.isTall ? 11.0f : 9.0f) * palm.scale;
+            float cRad = 2.4f * palm.scale;
+            drawSoftGroundShadow(palm.pos, crownH, cRad, cRad * (1.0f + 0.18f * sunStretch), 0.24f);
         }
 
-        // D. Village Cottages / Homestead Shadows
+        // D. Village Cottages / Homesteads
         for (const auto& hut : villageHuts) {
-            drawSoftGroundShadow(hut.pos, 1.2f * hut.scale, 4.8f * hut.scale, 4.4f * hut.scale, 0.44f);
-            drawSoftGroundShadow(hut.pos, 3.8f * hut.scale, 5.2f * hut.scale, 4.8f * hut.scale, 0.40f);
+            float hRadX = 3.6f * hut.scale;
+            float hRadZ = 3.2f * hut.scale * (1.0f + 0.12f * sunStretch);
+            drawSoftGroundShadow(hut.pos, 2.2f * hut.scale, hRadX, hRadZ, 0.26f);
         }
 
         // E. Traditional Golden Straw Haystacks
         for (const auto& hs : haystacks) {
-            drawSoftGroundShadow(hs.pos, 1.0f * hs.scale, 2.4f * hs.scale, 2.4f * hs.scale, 0.40f);
-            drawSoftGroundShadow(hs.pos, 2.8f * hs.scale, 2.6f * hs.scale, 2.9f * hs.scale, 0.36f);
+            float sRad = 2.0f * hs.scale;
+            drawSoftGroundShadow(hs.pos, 1.6f * hs.scale, sRad, sRad * (1.0f + 0.12f * sunStretch), 0.25f);
         }
 
         // F. Weathered Boulders & Rocks
         for (size_t i = 0; i < boulderPositions.size(); ++i) {
             float bScale = 0.75f + (i % 3) * 0.25f;
-            drawSoftGroundShadow(boulderPositions[i], 0.6f * bScale, 1.3f * bScale, 1.1f * bScale, 0.44f);
+            drawSoftGroundShadow(boulderPositions[i], 0.3f * bScale, 1.0f * bScale, 1.0f * bScale, 0.28f);
         }
 
         // G. Banana Tree Clusters
         for (const auto& bn : bananaTrees) {
-            drawSoftGroundShadow(bn.pos, 3.2f * bn.scale, 2.5f * bn.scale, 2.7f * bn.scale, 0.32f);
+            drawSoftGroundShadow(bn.pos, 2.0f * bn.scale, 1.6f * bn.scale, 1.6f * bn.scale, 0.20f);
         }
 
-        // H. Village Shrub Clumps
-        for (const auto& bu : villageBushes) {
-            drawSoftGroundShadow(bu.pos, 1.0f * bu.scale, 1.6f * bu.scale, 1.6f * bu.scale, 0.28f);
-        }
-
-        // I. Dynamic Ground Shadows for All Hot Air Balloons (Terrain-adaptive elevation)
+        // H. Dynamic Ground Shadows for All Hot Air Balloons (Proportional to altitude)
         auto drawBalloonShadow = [&](const glm::vec3& bPos, float bScale) {
             if (curSunDir.y < -0.1f && bPos.y < 95.0f) {
                 float tShadow = -(bPos.y - 0.06f) / curSunDir.y;
                 float shadowX = bPos.x + tShadow * curSunDir.x;
                 float shadowZ = bPos.z + tShadow * curSunDir.z;
-                float groundY = ModelGenerator::getTerrainHeight(shadowX, shadowZ) + 0.045f;
+                float groundY = ModelGenerator::getTerrainHeight(shadowX, shadowZ) + 0.035f;
 
-                float altFactor = 1.0f - (bPos.y / 95.0f);
-                float shadowScale = bScale * (1.0f + 0.015f * bPos.y);
-                float shadowAlpha = glm::clamp(0.44f * altFactor * bScale, 0.0f, 0.46f);
+                float altFactor = std::clamp(1.0f - (bPos.y / 95.0f), 0.0f, 1.0f);
+                float shadowScale = bScale * (3.6f + 0.02f * bPos.y);
+                float shadowAlpha = glm::clamp(0.36f * altFactor * bScale, 0.0f, 0.38f);
 
                 if (currentLightMode == LIGHT_NIGHT) {
-                    shadowAlpha *= 0.35f;
+                    shadowAlpha *= 0.30f;
                 }
 
                 glm::mat4 sModel = glm::translate(glm::mat4(1.0f), glm::vec3(shadowX, groundY, shadowZ));
-                sModel = glm::scale(sModel, glm::vec3(shadowScale, 1.0f, shadowScale * 1.15f));
+                sModel = glm::scale(sModel, glm::vec3(shadowScale, 1.0f, shadowScale * (1.0f + 0.10f * sunStretch)));
                 sceneShader.setMat4("uModel", sModel);
                 sceneShader.setFloat("uAlpha", shadowAlpha);
                 groundShadow.draw();
@@ -1221,7 +1222,8 @@ int main() {
         drawBalloonShadow(bg2Pos, bg2Scale);
         drawBalloonShadow(bg3Pos, bg3Scale);
 
-        glDepthMask(GL_TRUE); // Restore depth writes for solid props
+        glDepthMask(GL_TRUE); // Restore depth buffer writes
+        sceneShader.setInt("uMaterialType", 0);
         sceneShader.setFloat("uAlpha", 1.0f);
         sceneShader.setFloat("uSpecularStrength", 0.40f);
 
