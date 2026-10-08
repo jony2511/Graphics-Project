@@ -32,6 +32,7 @@ float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 bool rightMousePressed = false;
+bool leftMousePressed = false;
 
 // Timing
 float deltaTime = 0.0f;
@@ -163,7 +164,11 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     lastX = xpos;
     lastY = ypos;
 
-    if ((camera.mode == CAMERA_FREE_FLY || camera.mode == CAMERA_BASKET_POV) && rightMousePressed) {
+    bool isDragging = leftMousePressed || rightMousePressed;
+
+    if (camera.mode == CAMERA_FREE_FLY && rightMousePressed) {
+        camera.processMouseMovement(xoffset, yoffset);
+    } else if (camera.mode == CAMERA_BASKET_POV && isDragging) {
         camera.processMouseMovement(xoffset, yoffset);
     }
 }
@@ -173,6 +178,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     (void)mods;
     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
         rightMousePressed = (action == GLFW_PRESS);
+    }
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        leftMousePressed = (action == GLFW_PRESS);
     }
 }
 
@@ -329,6 +337,33 @@ void processInput(GLFWwindow* window) {
         if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             camera.processKeyboard(CAM_DOWN, deltaTime);
     }
+
+    // 360-degree head look controls in Basket POV (Q/E pan, Z/C tilt)
+    if (camera.mode == CAMERA_BASKET_POV) {
+        float rotRate = 65.0f * deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+            camera.yaw -= rotRate;
+            camera.hasUserRotatedBasketView = true;
+            camera.updateCameraVectors();
+        }
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+            camera.yaw += rotRate;
+            camera.hasUserRotatedBasketView = true;
+            camera.updateCameraVectors();
+        }
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
+            camera.pitch -= rotRate;
+            if (camera.pitch < -89.0f) camera.pitch = -89.0f;
+            camera.hasUserRotatedBasketView = true;
+            camera.updateCameraVectors();
+        }
+        if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+            camera.pitch += rotRate;
+            if (camera.pitch > 89.0f) camera.pitch = 89.0f;
+            camera.hasUserRotatedBasketView = true;
+            camera.updateCameraVectors();
+        }
+    }
 }
 
 int main() {
@@ -374,7 +409,8 @@ int main() {
     std::cout << "  * ARROW KEYS (Up / Down)   : Steer Balloon Forward / Backward\n";
     std::cout << "  * F                        : Toggle Burner Flame (Ascend / Descend)\n";
     std::cout << "  * SPACE                    : Pause / Resume Simulation\n";
-    std::cout << "  * 1, 2, 3, 4               : Switch Camera Modes (Overview, Follow, Free-fly, Basket)\n";
+    std::cout << "  * 1, 2, 3, 4               : Switch Camera Modes (Overview, Follow, Free-fly, Basket POV)\n";
+    std::cout << "  * Mode 4 (Basket POV) 360  : Click & Drag (Left / Right Mouse) or Q / E / Z / C to look 360 deg\n";
     std::cout << "  * L                        : Cycle Day / Sunset / Night / Dawn Lighting\n";
     std::cout << "  * R                        : Reset Balloon to Launch Position\n";
     std::cout << "  * H                        : Toggle HUD Dashboard\n";
@@ -755,7 +791,7 @@ int main() {
         curSpotIntensity = glm::mix(curSpotIntensity, targetProf.spotIntensity, blendSpeed);
 
         processInput(window);
-        camera.update(deltaTime, balloonPosition);
+        camera.update(deltaTime, balloonPosition, basketSwayRoll, basketSwayPitch);
 
         // Update Window Title with Live Telemetry
         frameCount++;

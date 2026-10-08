@@ -37,12 +37,12 @@ void Camera::setMode(CameraMode newMode) {
     } else if (mode == CAMERA_BASKET_POV) {
         hasUserRotatedBasketView = false;
         yaw = 68.0f;
-        pitch = -18.0f;
+        pitch = -10.0f;
         updateCameraVectors();
     }
 }
 
-void Camera::update(float deltaTime, const glm::vec3& balloonPos) {
+void Camera::update(float deltaTime, const glm::vec3& balloonPos, float swayRoll, float swayPitch) {
     (void)deltaTime; // Suppress unused warning
 
     switch (mode) {
@@ -65,14 +65,18 @@ void Camera::update(float deltaTime, const glm::vec3& balloonPos) {
             break;
         }
         case CAMERA_BASKET_POV: {
-            // Positioned inside the wicker basket at natural eye level above the rim
-            position = balloonPos + glm::vec3(0.0f, -0.05f, 0.0f);
+            // Standing passenger inside the wicker basket:
+            // Basket rim is at +0.30m. Eye level is at +0.55m (25cm ABOVE the rim), standing near the front rail (Z = +0.35m).
+            glm::vec3 localEye(0.0f, 0.55f, 0.35f);
+            glm::mat4 bTransform = glm::rotate(glm::mat4(1.0f), glm::radians(swayRoll), glm::vec3(0, 0, 1));
+            bTransform = glm::rotate(bTransform, glm::radians(swayPitch), glm::vec3(1, 0, 0));
+            glm::vec3 worldEyeOffset = glm::vec3(bTransform * glm::vec4(localEye, 1.0f));
+            position = balloonPos + worldEyeOffset;
 
-            // Natural passenger perspective: as altitude increases, smoothly tilt gaze downwards
-            // so the magnificent village landscape, pond, roads, and cottages remain beautifully framed!
+            // Default gaze: looks smoothly over the front rim towards the village
             if (!hasUserRotatedBasketView) {
                 float altRatio = glm::clamp((balloonPos.y - 4.2f) / 34.0f, 0.0f, 1.0f);
-                pitch = glm::mix(-14.0f, -28.0f, altRatio);
+                pitch = glm::mix(-10.0f, -22.0f, altRatio);
                 yaw = 68.0f;
             }
             updateCameraVectors();

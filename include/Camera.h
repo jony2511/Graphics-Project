@@ -51,13 +51,11 @@ public:
     glm::mat4 getProjectionMatrix(float aspectRatio) const;
 
     void setMode(CameraMode newMode);
-    void update(float deltaTime, const glm::vec3& balloonPos);
+    void update(float deltaTime, const glm::vec3& balloonPos, float swayRoll = 0.0f, float swayPitch = 0.0f);
     void processKeyboard(CameraMovement direction, float deltaTime);
     void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
     void processMouseScroll(float yoffset);
     const char* getModeName() const;
-
-private:
     void updateCameraVectors();
 };
 
