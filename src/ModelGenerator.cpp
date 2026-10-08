@@ -259,12 +259,12 @@ Mesh ModelGenerator::createBalloonEnvelope(float radius, float height, int rings
 
 float ModelGenerator::getTerrainHeight(float x, float z) {
     float dist = std::sqrt(x * x + z * z);
-    // Flat central area for launchpad platform
-    if (dist < 12.0f) return 0.0f;
+    // Flat central area for launchpad platform and village clearing
+    if (dist < 26.0f) return 0.0f;
 
     // Gentle natural rural meadow plain with subtle drainage knolls
-    float weight = std::clamp((dist - 12.0f) / 36.0f, 0.0f, 1.0f);
-    weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep
+    float weight = std::clamp((dist - 26.0f) / 48.0f, 0.0f, 1.0f);
+    weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep Hermite C1
 
     float h1 = 2.0f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
     float h2 = 1.2f * std::sin(x * 0.048f + 1.2f) * std::sin(z * 0.042f + 0.7f);
@@ -299,7 +299,7 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
     float stepX = width / (float)subdivisions;
     float stepZ = depth / (float)subdivisions;
 
-    const float eps = 0.5f;
+    glm::vec3 uniformMeadowColor(0.20f, 0.52f, 0.18f);
 
     for (int z = 0; z <= subdivisions; ++z) {
         float posZ = -halfD + z * stepZ;
@@ -307,49 +307,8 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
             float posX = -halfW + x * stepX;
             float posY = getTerrainHeight(posX, posZ);
 
-            // Compute surface normal via finite difference
-            float hL = getTerrainHeight(posX - eps, posZ);
-            float hR = getTerrainHeight(posX + eps, posZ);
-            float hD = getTerrainHeight(posX, posZ - eps);
-            float hU = getTerrainHeight(posX, posZ + eps);
-
-            glm::vec3 norm = glm::normalize(glm::vec3((hL - hR) / (2.0f * eps), 1.0f, (hD - hU) / (2.0f * eps)));
-
-            // Rich, vibrant natural green rural village palette:
-            float n1 = std::sin(posX * 0.08f + posZ * 0.06f);
-            float n2 = std::cos(posX * 0.04f - posZ * 0.05f + 1.2f);
-            float noise = (n1 + n2) * 0.5f; // [-1.0, 1.0]
-
-            glm::vec3 deepGardenGreen(0.12f, 0.44f, 0.15f); // Deep lush green
-            glm::vec3 paddyEmerald(0.18f, 0.56f, 0.19f);    // Vibrant Bengali paddy green
-            glm::vec3 meadowSpring(0.26f, 0.66f, 0.22f);    // Fresh spring grass
-            glm::vec3 sunlitField(0.34f, 0.70f, 0.25f);     // Sun-warmed grassy knoll
-
-            glm::vec3 vertColor;
-            if (noise < -0.20f) {
-                float t = (noise + 1.0f) / 0.80f;
-                vertColor = glm::mix(deepGardenGreen, paddyEmerald, glm::clamp(t, 0.0f, 1.0f));
-            } else if (noise < 0.40f) {
-                float t = (noise + 0.20f) / 0.60f;
-                vertColor = glm::mix(paddyEmerald, meadowSpring, glm::clamp(t, 0.0f, 1.0f));
-            } else {
-                float t = (noise - 0.40f) / 0.60f;
-                vertColor = glm::mix(meadowSpring, sunlitField, glm::clamp(t, 0.0f, 1.0f));
-            }
-
-            // Elevation and slope modulation for natural shading
-            float slopeFactor = glm::clamp(norm.y, 0.75f, 1.0f);
-            vertColor *= (0.90f + 0.10f * slopeFactor);
-
-            // Subtle atmospheric color tint for distant horizon ridges
-            float dFromCenter = std::sqrt(posX * posX + posZ * posZ);
-            if (dFromCenter > 200.0f) {
-                float horizonHaze = std::clamp((dFromCenter - 200.0f) / 380.0f, 0.0f, 1.0f);
-                glm::vec3 distantRidgeGreen(0.14f, 0.44f, 0.22f);
-                vertColor = glm::mix(vertColor, distantRidgeGreen, horizonHaze * 0.60f);
-            }
-
-            vertices.push_back({{posX, posY, posZ}, norm, vertColor, {posX * 0.05f, posZ * 0.05f}});
+            // Initialize vertex; normal will be accumulated smoothly from adjacent triangle faces
+            vertices.push_back({{posX, posY, posZ}, glm::vec3(0.0f, 0.0f, 0.0f), uniformMeadowColor, {posX * 0.05f, posZ * 0.05f}});
         }
     }
 
@@ -368,6 +327,31 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
             indices.push_back(topRight);
             indices.push_back(bottomLeft);
             indices.push_back(bottomRight);
+        }
+    }
+
+    // Compute mathematically smooth, area-weighted vertex normals from triangle faces
+    // (Completely eliminates ALL triangle creases and diagonal polygon seams!)
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        unsigned int i0 = indices[i];
+        unsigned int i1 = indices[i + 1];
+        unsigned int i2 = indices[i + 2];
+
+        glm::vec3 p0 = vertices[i0].position;
+        glm::vec3 p1 = vertices[i1].position;
+        glm::vec3 p2 = vertices[i2].position;
+
+        glm::vec3 faceNorm = glm::cross(p1 - p0, p2 - p0);
+        vertices[i0].normal += faceNorm;
+        vertices[i1].normal += faceNorm;
+        vertices[i2].normal += faceNorm;
+    }
+
+    for (auto& v : vertices) {
+        if (glm::length(v.normal) > 0.0001f) {
+            v.normal = glm::normalize(v.normal);
+        } else {
+            v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
         }
     }
 

@@ -239,14 +239,13 @@ void main() {
         grassCol = mix(grassCol, colGoldenTips, smoothstep(0.55, 0.90, microBlade) * 0.45);
         grassCol = mix(grassCol, colDarkEarth, (1.0 - smoothstep(0.20, 0.55, mesoNoise)) * 0.35);
 
-        // Distance mip/anti-aliasing fade to avoid harsh pixel grain
-        float detailFade = clamp(1.0 - dist / 320.0, 0.0, 1.0);
-        grassCol = mix(grassCol, VertexColor * 0.88, (1.0 - detailFade) * 0.45);
+        // Pure procedural albedo computed per-pixel (eliminates all vertex interpolation creases!)
         baseAlbedo = grassCol;
 
-        // Realistic blade/turf normal perturbation (bump mapping)
+        // Subtle organic blade/turf normal perturbation (bump mapping)
         if (dist < 180.0) {
-            float bumpFactor = detailFade * 0.28;
+            float detailFade = clamp(1.0 - dist / 180.0, 0.0, 1.0);
+            float bumpFactor = detailFade * 0.18;
             vec3 grassBump = vec3(
                 noise2D(pMicro + vec2(1.7, 0.3)) - 0.5,
                 0.0,

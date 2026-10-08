@@ -577,7 +577,7 @@ int main() {
 
     // 5. Generate Procedural 3D Meshes
     // A. Rural Terrain & Dirt Road
-    Mesh rollingTerrain = ModelGenerator::createRollingTerrain(1200.0f, 1200.0f, 160);
+    Mesh rollingTerrain = ModelGenerator::createRollingTerrain(1200.0f, 1200.0f, 240);
     Mesh dirtRoad = ModelGenerator::createCurvedDirtRoad();
     Mesh haystackCone = ModelGenerator::createCone(2.2f, 3.2f, 16, glm::vec3(0.86f, 0.74f, 0.32f));
     Mesh haystackBase = ModelGenerator::createCylinder(2.3f, 2.2f, 0.45f, 16, glm::vec3(0.78f, 0.65f, 0.28f));
@@ -1103,8 +1103,8 @@ int main() {
         // ==========================================
         model = glm::mat4(1.0f);
         sceneShader.setMat4("uModel", model);
-        sceneShader.setFloat("uSpecularStrength", 0.08f);
-        sceneShader.setFloat("uShininess", 8.0f);
+        sceneShader.setFloat("uSpecularStrength", 0.0f);
+        sceneShader.setFloat("uShininess", 1.0f);
 
         // Textured Meadow Ground
         sceneShader.setInt("uMaterialType", 1);
