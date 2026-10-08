@@ -1361,7 +1361,7 @@ int main() {
         }
 
         // E. Village Pond Water Mirror (Fresh Blue-Green Reflective Water)
-        glm::vec3 waterPos(46.0f, -0.02f, 36.0f);
+        glm::vec3 waterPos(46.0f, 0.005f, 36.0f);
         model = glm::translate(glm::mat4(1.0f), waterPos);
         model = glm::rotate(model, glm::radians(8.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         sceneShader.setMat4("uModel", model);

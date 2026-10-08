@@ -259,35 +259,22 @@ Mesh ModelGenerator::createBalloonEnvelope(float radius, float height, int rings
 
 float ModelGenerator::getTerrainHeight(float x, float z) {
     float dist = std::sqrt(x * x + z * z);
-    // Flat central area for launchpad platform and village clearing
-    if (dist < 26.0f) return 0.0f;
-
-    // Gentle natural rural meadow plain with subtle drainage knolls
-    float weight = std::clamp((dist - 26.0f) / 48.0f, 0.0f, 1.0f);
-    weight = weight * weight * (3.0f - 2.0f * weight); // smoothstep Hermite C1
-
-    float h1 = 2.0f * std::sin(x * 0.022f + 0.35f) * std::cos(z * 0.026f - 0.25f);
-    float h2 = 1.2f * std::sin(x * 0.048f + 1.2f) * std::sin(z * 0.042f + 0.7f);
-    float h3 = 0.6f * std::cos(dist * 0.018f);
-    float baseH = weight * (h1 + h2 + h3);
-
-    // Natural pond basin depression around (46, 36)
-    float distPond = std::sqrt((x - 46.0f) * (x - 46.0f) + (z - 36.0f) * (z - 36.0f));
-    if (distPond < 20.0f) {
-        float pondFactor = std::clamp(distPond / 20.0f, 0.0f, 1.0f);
-        baseH = baseH * pondFactor - (1.0f - pondFactor) * 0.20f;
+    // Level rural plain covering the launchpad, village settlements, cottages,
+    // orchards, dirt road, pond, and full camera viewing perspective (dist <= 180m).
+    // Zero elevation differences guarantees coplanar quads, 100% eliminating
+    // all polygon creases, diagonal seams, and triangle facets!
+    if (dist <= 180.0f) {
+        return 0.0f;
     }
 
-    // Majestic distant rolling hill ridges along the outer perimeter (dist > 160m to 600m)
-    if (dist > 160.0f) {
-        float hillWeight = std::clamp((dist - 160.0f) / 180.0f, 0.0f, 1.0f);
-        hillWeight = hillWeight * hillWeight * (3.0f - 2.0f * hillWeight);
-        float ridge1 = 26.0f * std::pow(std::max(0.0f, std::sin(x * 0.007f + 1.2f) * std::cos(z * 0.006f - 0.9f)), 1.7f);
-        float ridge2 = 16.0f * std::sin(dist * 0.009f + 1.5f) * std::cos(x * 0.004f);
-        baseH += hillWeight * (ridge1 + ridge2);
-    }
+    // Majestic distant rolling hill ridges along the outer perimeter (dist > 180m to 600m)
+    // Seamless C2 quintic smootherstep transition (zero 1st and 2nd derivatives at 180m)
+    float t = std::clamp((dist - 180.0f) / 160.0f, 0.0f, 1.0f);
+    float hillWeight = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 
-    return baseH;
+    float ridge1 = 28.0f * std::pow(std::max(0.0f, std::sin(x * 0.007f + 1.2f) * std::cos(z * 0.006f - 0.9f)), 1.7f);
+    float ridge2 = 18.0f * std::sin(dist * 0.009f + 1.5f) * std::cos(x * 0.004f);
+    return hillWeight * (ridge1 + ridge2);
 }
 
 Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivisions) {
@@ -307,8 +294,8 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
             float posX = -halfW + x * stepX;
             float posY = getTerrainHeight(posX, posZ);
 
-            // Initialize vertex; normal will be accumulated smoothly from adjacent triangle faces
-            vertices.push_back({{posX, posY, posZ}, glm::vec3(0.0f, 0.0f, 0.0f), uniformMeadowColor, {posX * 0.05f, posZ * 0.05f}});
+            // Initialize vertex; normal will be set mathematically smooth below
+            vertices.push_back({{posX, posY, posZ}, glm::vec3(0.0f, 1.0f, 0.0f), uniformMeadowColor, {posX * 0.05f, posZ * 0.05f}});
         }
     }
 
@@ -330,28 +317,27 @@ Mesh ModelGenerator::createRollingTerrain(float width, float depth, int subdivis
         }
     }
 
-    // Compute mathematically smooth, area-weighted vertex normals from triangle faces
-    // (Completely eliminates ALL triangle creases and diagonal polygon seams!)
-    for (size_t i = 0; i < indices.size(); i += 3) {
-        unsigned int i0 = indices[i];
-        unsigned int i1 = indices[i + 1];
-        unsigned int i2 = indices[i + 2];
+    // Compute mathematical analytical normals using symmetric central differences:
+    // For the level village plain (dist <= 180m), the normal is strictly (0, 1, 0).
+    // For distant hills, central differences produce continuous C1 normals with ZERO triangulation bias or diagonal seams!
+    const float eps = 1.0f;
+    for (int z = 0; z <= subdivisions; ++z) {
+        for (int x = 0; x <= subdivisions; ++x) {
+            int idx = z * stride + x;
+            float px = vertices[idx].position.x;
+            float pz = vertices[idx].position.z;
+            float dist = std::sqrt(px * px + pz * pz);
 
-        glm::vec3 p0 = vertices[i0].position;
-        glm::vec3 p1 = vertices[i1].position;
-        glm::vec3 p2 = vertices[i2].position;
-
-        glm::vec3 faceNorm = glm::cross(p1 - p0, p2 - p0);
-        vertices[i0].normal += faceNorm;
-        vertices[i1].normal += faceNorm;
-        vertices[i2].normal += faceNorm;
-    }
-
-    for (auto& v : vertices) {
-        if (glm::length(v.normal) > 0.0001f) {
-            v.normal = glm::normalize(v.normal);
-        } else {
-            v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+            if (dist <= 180.0f) {
+                vertices[idx].normal = glm::vec3(0.0f, 1.0f, 0.0f);
+            } else {
+                float hL = getTerrainHeight(px - eps, pz);
+                float hR = getTerrainHeight(px + eps, pz);
+                float hD = getTerrainHeight(px, pz - eps);
+                float hU = getTerrainHeight(px, pz + eps);
+                glm::vec3 norm((hL - hR) / (2.0f * eps), 1.0f, (hD - hU) / (2.0f * eps));
+                vertices[idx].normal = glm::normalize(norm);
+            }
         }
     }
 
@@ -1735,8 +1721,8 @@ Mesh ModelGenerator::createWetlandWater(float width, float depth) {
             float fx = (float)x / (float)subsX;
             float px = -halfW + fx * width;
 
-            // Subtle rippling surface
-            float py = -0.06f + 0.015f * std::sin(px * 0.8f + pz * 0.6f);
+            // Subtle rippling surface placed cleanly on meadow plain
+            float py = 0.018f + 0.008f * std::sin(px * 0.8f + pz * 0.6f);
             vertices.push_back({{px, py, pz}, norm, waterDeep, {fx, fz}});
         }
     }

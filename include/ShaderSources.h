@@ -242,10 +242,16 @@ void main() {
         // Pure procedural albedo computed per-pixel (eliminates all vertex interpolation creases!)
         baseAlbedo = grassCol;
 
+        // Level village meadow plain base normal is strictly vertical (0, 1, 0)
+        float groundDist = length(FragPos.xz);
+        if (groundDist <= 180.0) {
+            norm = vec3(0.0, 1.0, 0.0);
+        }
+
         // Subtle organic blade/turf normal perturbation (bump mapping)
         if (dist < 180.0) {
             float detailFade = clamp(1.0 - dist / 180.0, 0.0, 1.0);
-            float bumpFactor = detailFade * 0.18;
+            float bumpFactor = detailFade * 0.10;
             vec3 grassBump = vec3(
                 noise2D(pMicro + vec2(1.7, 0.3)) - 0.5,
                 0.0,
